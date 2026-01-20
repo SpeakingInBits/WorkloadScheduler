@@ -1,6 +1,6 @@
 # Instructor Workload Scheduler
 
-A front-end only web application for scheduling instructor workloads with drag-and-drop functionality. All data is stored in the browser's localStorage with import/export capabilities.
+A front-end only web application for scheduling instructor workloads with drag-and-drop functionality. All data is stored in the browser's localStorage with import/export capabilities. Data Export/Import can be used to move data between different machines/browsers.
 
 ## Features
 
@@ -10,6 +10,7 @@ A front-end only web application for scheduling instructor workloads with drag-a
 - Delete instructors (protected if they have assigned courses)
 
 ### Course Management
+Courses should be treated as an instance of a section.
 - Add courses with name, credits, and assigned instructor
 - Edit course details by **double-clicking** on any scheduled course
 - Delete courses (automatically removes from schedule)
@@ -49,25 +50,6 @@ When dropping a course onto a schedule slot, choose from:
 - Import previously exported JSON files
 - Backward compatible with older data formats
 
-## How to Use
-
-1. **Open** `index.html` in your web browser
-2. **Add Instructors** - Enter names in the Instructors panel
-3. **Add Courses** - Enter course details and assign to an instructor
-4. **Add Classrooms** - Create rooms with room numbers
-5. **Add Time Slots** - Set up schedule times for each day of the week
-6. **Schedule Courses** - Drag courses from the sidebar onto schedule slots, then select modality
-7. **Edit Courses** - Double-click any scheduled course to edit its details
-8. **Export/Import** - Save your data or load previous schedules
-
-## Tips
-
-- Use the "Copy to All" button on Monday to quickly set up the same timeslots for the entire week
-- Courses can be scheduled multiple times (e.g., a course meeting MWF)
-- Double-click scheduled courses to quickly edit course information
-- Toggle classroom visibility to focus on specific rooms
-- Export your data regularly as a backup
-
 ## Technical Details
 
 - **100% Client-Side** - No server required
@@ -75,3 +57,9 @@ When dropping a course onto a schedule slot, choose from:
 - **Drag & Drop API** - Native HTML5 drag and drop
 - **Responsive Design** - Works on various screen sizes
 - **No Dependencies** - Pure HTML, CSS, and JavaScript
+
+## Sample Data
+Sample data is provided in the `docs/sample-data` directory and can be imported into either a locally running version or the GitHub Pages hosted version of the site.
+
+## Screenshots
+![Sample Schedule](docs/SampleSchedule.png)
