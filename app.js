@@ -367,6 +367,19 @@ function handleDragStart(e, courseId) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('courseId', courseId);
     e.target.classList.add('dragging');
+    
+    // If dragging from schedule, store source location
+    const sourceClassroomId = e.target.dataset.sourceClassroomId;
+    const sourceDay = e.target.dataset.sourceDay;
+    const sourceTimeslot = e.target.dataset.sourceTimeslot;
+    const sourceCourseIndex = e.target.dataset.sourceCourseIndex;
+    
+    if (sourceClassroomId && sourceDay && sourceTimeslot) {
+        e.dataTransfer.setData('sourceClassroomId', sourceClassroomId);
+        e.dataTransfer.setData('sourceDay', sourceDay);
+        e.dataTransfer.setData('sourceTimeslot', sourceTimeslot);
+        e.dataTransfer.setData('sourceCourseIndex', sourceCourseIndex || '');
+    }
 }
 
 function handleDragEnd(e) {
@@ -389,9 +402,40 @@ function handleDrop(e, classroomId, day, time) {
     
     const courseId = e.dataTransfer.getData('courseId');
     if (courseId) {
-        // Store pending drop data and show modality modal
-        pendingDrop = { classroomId, day, time, courseId };
-        showModalityModal();
+        // Check if moving from another timeslot
+        const sourceClassroomId = e.dataTransfer.getData('sourceClassroomId');
+        const sourceDay = e.dataTransfer.getData('sourceDay');
+        const sourceTimeslot = e.dataTransfer.getData('sourceTimeslot');
+        const sourceCourseIndex = e.dataTransfer.getData('sourceCourseIndex');
+        
+        // Get modality from source if moving, otherwise ask user
+        if (sourceClassroomId && sourceDay && sourceTimeslot) {
+            // Moving from another timeslot
+            const sourceSlot = appData.schedule[sourceClassroomId]?.[sourceDay]?.[sourceTimeslot];
+            let modality = 'in-person';
+            if (Array.isArray(sourceSlot) && sourceCourseIndex !== '') {
+                modality = sourceSlot[parseInt(sourceCourseIndex)]?.modality || 'in-person';
+            } else if (sourceSlot && !Array.isArray(sourceSlot)) {
+                modality = sourceSlot.modality || 'in-person';
+            }
+            
+            // Check if moving to same slot (do nothing)
+            const isSameSlot = sourceClassroomId === classroomId && sourceDay === day && sourceTimeslot === time;
+            if (!isSameSlot) {
+                // Schedule at new location
+                scheduleCourse(classroomId, day, time, courseId, modality);
+                // Remove from original location
+                if (sourceCourseIndex !== '') {
+                    unscheduleCourse(sourceClassroomId, sourceDay, sourceTimeslot, parseInt(sourceCourseIndex));
+                } else {
+                    unscheduleCourse(sourceClassroomId, sourceDay, sourceTimeslot, 0);
+                }
+            }
+        } else {
+            // Adding from sidebar - show modality modal
+            pendingDrop = { classroomId, day, time, courseId };
+            showModalityModal();
+        }
     }
 }
 
@@ -642,7 +686,15 @@ function renderSchedule() {
                                             const course = appData.courses.find(c => c.id === item.courseId);
                                             const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
                                             return `
-                                                <div class="scheduled-course" ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
+                                                <div class="scheduled-course" 
+                                                     draggable="true"
+                                                     data-source-classroom-id="${classroom.id}"
+                                                     data-source-day="${day}"
+                                                     data-source-timeslot="arranged"
+                                                     data-source-course-index="${index}"
+                                                     ondragstart="handleDragStart(event, '${item.courseId}')"
+                                                     ondragend="handleDragEnd(event)"
+                                                     ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                                     <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
                                                     <div class="course-name">${course ? course.name : 'Unknown'}</div>
                                                     <div class="course-meta">
@@ -686,7 +738,15 @@ function renderSchedule() {
                                         const course = appData.courses.find(c => c.id === item.courseId);
                                         const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
                                         return `
-                                            <div class="scheduled-course" ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', '${timeslot}', ${index})">
+                                            <div class="scheduled-course" 
+                                                 draggable="true"
+                                                 data-source-classroom-id="${classroom.id}"
+                                                 data-source-day="${day}"
+                                                 data-source-timeslot="${timeslot}"
+                                                 data-source-course-index="${index}"
+                                                 ondragstart="handleDragStart(event, '${item.courseId}')"
+                                                 ondragend="handleDragEnd(event)"
+                                                 ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', '${timeslot}', ${index})">
                                                 <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', '${timeslot}', ${index})">&times;</button>
                                                 <div class="course-name">${course ? course.name : 'Unknown'}${hasConflict ? ' ⚠️' : ''}</div>
                                                 <div class="course-meta">
