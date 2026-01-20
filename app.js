@@ -605,7 +605,10 @@ function renderSchedule() {
                         
                         if (courses.length > 0) {
                             return `
-                                <div class="time-slot occupied ${hasConflict ? 'conflict' : ''}">
+                                <div class="time-slot occupied ${hasConflict ? 'conflict' : ''}"
+                                     ondragover="handleDragOver(event)"
+                                     ondragleave="handleDragLeave(event)"
+                                     ondrop="handleDrop(event, '${classroom.id}', '${day}', '${timeslot}')">
                                     ${courses.map((item, index) => {
                                         const course = appData.courses.find(c => c.id === item.courseId);
                                         const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
