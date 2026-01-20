@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Instructor Workload Scheduler</h1>
+            <h1>Instructor Workload Scheduler <span id="helpIcon" class="help-icon" onclick="showHelpModal()" title="Help">?</span></h1>
             <div class="data-controls">
                 <button id="exportBtn">Export Data</button>
                 <button id="importBtn">Import Data</button>
@@ -139,6 +139,51 @@
                     <span class="modality-icon">🔄</span>
                     Hybrid
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal" onclick="closeHelpModalOnOutsideClick(event)">
+        <div class="modal-content" style="max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 30px;">
+            <h2>How to Use</h2>
+            <ol style="line-height: 1.8; margin: 20px 0;">
+                <li><strong>Add Instructors</strong> - Enter names in the Instructors panel on the left</li>
+                <li><strong>Add Courses</strong> - Enter course details and optionally assign to an instructor</li>
+                <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
+                <li><strong>Add Time Slots</strong> - Set up schedule times for each day of the week</li>
+                <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then select modality</li>
+                <li><strong>Move Courses</strong> - Drag scheduled courses between timeslots to reorganize</li>
+                <li><strong>Edit Courses/Instructors</strong> - Double-click any course or instructor (in sidebar or schedule) to edit details</li>
+                <li><strong>Export/Import</strong> - Save your data as JSON or load previous schedules</li>
+            </ol>
+
+            <h2>Tips</h2>
+            <ul style="line-height: 1.8; margin: 20px 0;">
+                <li>Use the <strong>"Copy to All"</strong> button on Monday to quickly set up the same timeslots for the entire week</li>
+                <li>Courses can be <strong>scheduled multiple times</strong> (e.g., a course meeting MWF)</li>
+                <li><strong>Double-click</strong> scheduled courses to quickly edit course information and modality</li>
+                <li><strong>Double-click</strong> courses or instructors in the left sidebar to edit their basic information</li>
+                <li><strong>Drag courses</strong> between timeslots to move them (preserves modality)</li>
+                <li>Use the <strong>"Arranged"</strong> column for courses that don't have fixed meeting times</li>
+                <li><strong>Toggle classroom visibility</strong> to focus on specific rooms using the eye icon</li>
+                <li><strong>Export your data regularly</strong> as a backup - it's saved as a JSON file you can import later</li>
+                <li>Courses are color-coded: <span style="background: #d4edda; padding: 2px 6px; border-radius: 3px;">green = scheduled</span>, <span style="background: #f8d7da; padding: 2px 6px; border-radius: 3px;">red = unscheduled</span></li>
+                <li>In-person scheduling conflicts are highlighted with a <span style="background: #ffcccc; padding: 2px 6px; border-radius: 3px;">red background</span></li>
+            </ul>
+
+            <h2>Modality Options</h2>
+            <p style="line-height: 1.8; margin: 15px 0;">When scheduling a course, choose from:</p>
+            <ul style="line-height: 1.8; margin: 20px 0;">
+                <li>🏫 <strong>In-Person</strong> - Traditional classroom instruction</li>
+                <li>💻 <strong>Online</strong> - Virtual/remote instruction</li>
+                <li>🔄 <strong>Hybrid</strong> - Mix of in-person and online</li>
+            </ul>
+            <p style="line-height: 1.8; margin: 15px 0; color: #666; font-style: italic;">
+                Note: Modality is set per scheduled slot, so the same course can have different modalities at different times.
+            </p>
+            <div style="text-align: center; margin-top: 30px;">
+                <button onclick="closeHelpModal()" style="padding: 10px 30px; font-size: 16px;">Close</button>
             </div>
         </div>
     </div>

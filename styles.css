@@ -32,6 +32,28 @@ header h1 {
     color: #2c3e50;
 }
 
+.help-icon {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    background: #3498db;
+    color: white;
+    border-radius: 50%;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 10px;
+    vertical-align: middle;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.help-icon:hover {
+    background: #2980b9;
+    transform: scale(1.1);
+}
+
 .data-controls {
     display: flex;
     gap: 10px;
@@ -438,6 +460,7 @@ input:focus, select:focus {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     animation: fadeIn 0.2s;
+    overflow-y: auto;
 }
 
 @keyframes fadeIn {
@@ -447,7 +470,7 @@ input:focus, select:focus {
 
 .modal-content {
     background-color: white;
-    margin: 10% auto;
+    margin: 5% auto;
     padding: 0;
     border-radius: 8px;
     width: 90%;

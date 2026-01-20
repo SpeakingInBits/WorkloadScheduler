@@ -457,6 +457,21 @@ function closeModalityModal() {
     pendingDrop = null;
 }
 
+function showHelpModal() {
+    document.getElementById('helpModal').style.display = 'block';
+}
+
+function closeHelpModal() {
+    document.getElementById('helpModal').style.display = 'none';
+}
+
+function closeHelpModalOnOutsideClick(event) {
+    const modal = document.getElementById('helpModal');
+    if (event.target === modal) {
+        closeHelpModal();
+    }
+}
+
 function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
     const course = appData.courses.find(c => c.id === courseId);
     if (!course) return;
