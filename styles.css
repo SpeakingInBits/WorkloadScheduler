@@ -1,0 +1,590 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+.data-controls {
+    display: flex;
+    gap: 10px;
+}
+
+button {
+    padding: 8px 16px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+.main-content {
+    display: flex;
+    gap: 20px;
+}
+
+.sidebar {
+    width: 350px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.panel h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+input, select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+#instructorsList, #coursesList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.instructor-item, .course-item {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.instructor-item .workload {
+    font-size: 12px;
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+.course-item {
+    cursor: grab;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.course-item:hover {
+    background: #e8f4f8;
+    border-color: #3498db;
+}
+
+.course-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.course-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.course-name {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.course-meta {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+.delete-btn {
+    background: #e74c3c;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.delete-btn:hover {
+    background: #c0392b;
+}
+
+/* Schedule Area */
+.schedule-area {
+    flex: 1;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow-x: auto;
+}
+
+.schedule-area h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #2c3e50;
+}
+
+#scheduleGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.classroom-container {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.classroom-header {
+    background: #34495e;
+    color: white;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.classroom-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.classroom-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toggle-btn {
+    background: transparent;
+    border: 1px solid white;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.classroom-schedule {
+    display: grid;
+    grid-template-columns: 100px repeat(5, 1fr);
+    border-top: 1px solid #ddd;
+}
+
+.classroom-schedule.hidden {
+    display: none;
+}
+
+.time-label, .day-header, .time-slot {
+    padding: 10px;
+    border-right: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+}
+
+.day-header {
+    background: #ecf0f1;
+    font-weight: 600;
+    text-align: center;
+    font-size: 14px;
+}
+
+.time-label {
+    background: #f8f9fa;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+.time-slot {
+    min-height: 80px;
+    background: white;
+    position: relative;
+    transition: background 0.2s;
+}
+
+.time-slot.drag-over {
+    background: #e8f4f8;
+    border: 2px dashed #3498db;
+}
+
+.time-slot.occupied {
+    background: #f8f9fa;
+}
+
+.scheduled-course {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.scheduled-course:hover {
+    opacity: 0.9;
+}
+
+.scheduled-course .course-name {
+    color: white;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.scheduled-course .course-meta {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.scheduled-course .remove-course {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 12px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.scheduled-course .remove-course:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Form Timeslots */
+.timeslot-form-header {
+    padding: 12px 15px;
+    background: #34495e;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 14px;
+    border-top: 1px solid #ddd;
+    transition: background 0.2s;
+}
+
+.timeslot-form-header:hover {
+    background: #2c3e50;
+}
+
+.timeslot-form {
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #ddd;
+}
+
+.timeslot-form h4 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.timeslot-inputs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.timeslot-inputs input {
+    flex: 1;
+}
+
+.timeslots-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.timeslot-tag {
+    background: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #ddd;
+}
+
+.timeslot-tag button {
+    background: transparent;
+    color: #e74c3c;
+    padding: 0;
+    font-size: 14px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeslot-tag button:hover {
+    color: #c0392b;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #7f8c8d;
+}
+
+.empty-state p {
+    margin-bottom: 10px;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #2c3e50;
+}
+
+.close-modal {
+    font-size: 28px;
+    font-weight: bold;
+    color: #7f8c8d;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-modal:hover {
+    color: #2c3e50;
+}
+
+#editCourseForm {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
+}
+
+.btn-secondary {
+    background: #ecf0f1;
+    color: #2c3e50;
+}
+
+.btn-secondary:hover {
+    background: #d5dbdb;
+}
+
+/* Modality Modal */
+.modality-options {
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.modality-btn {
+    flex: 1;
+    padding: 20px;
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.modality-btn:hover {
+    border-color: #3498db;
+    background: #e8f4f8;
+    transform: translateY(-2px);
+}
+
+.modality-icon {
+    font-size: 32px;
+}
+
+/* Modality Badge */
+.modality-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 5px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Timeslot day headers */
+.timeslot-day-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.timeslot-day-section h5 {
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.timeslot-day-section .timeslots-list {
+    margin-top: 10px;
+}
+
+.day-timeslots {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}

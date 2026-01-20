@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructor Workload Scheduler</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Instructor Workload Scheduler</h1>
+            <div class="data-controls">
+                <button id="exportBtn">Export Data</button>
+                <button id="importBtn">Import Data</button>
+                <input type="file" id="fileInput" accept=".json" style="display: none;">
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Sidebar: Instructors and Courses -->
+            <aside class="sidebar">
+                <!-- Instructors Section -->
+                <section class="panel">
+                    <h2>Instructors</h2>
+                    <form id="addInstructorForm">
+                        <input type="text" id="instructorName" placeholder="Instructor name" required>
+                        <button type="submit">Add Instructor</button>
+                    </form>
+                    <div id="instructorsList"></div>
+                </section>
+
+                <!-- Courses Section -->
+                <section class="panel">
+                    <h2>Courses</h2>
+                    <form id="addCourseForm">
+                        <input type="text" id="courseName" placeholder="Course name" required>
+                        <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
+                        <select id="courseInstructor">
+                            <option value="">Select Instructor (Optional)</option>
+                        </select>
+                        <button type="submit">Add Course</button>
+                    </form>
+                    <div id="coursesList"></div>
+                </section>
+
+                <!-- Classrooms Section -->
+                <section class="panel">
+                    <h2>Classrooms</h2>
+                    <form id="addClassroomForm">
+                        <input type="text" id="roomNumber" placeholder="Room number" required>
+                        <button type="submit">Add Classroom</button>
+                    </form>
+                </section>
+            </aside>
+
+            <!-- Main Area: Schedule Grid -->
+            <main class="schedule-area">
+                <h2>Schedule</h2>
+                <div id="scheduleGrid"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal for editing course -->
+    <div id="courseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Course</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="editCourseForm">
+                <div class="form-group">
+                    <label for="editCourseName">Course Name</label>
+                    <input type="text" id="editCourseName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseCredits">Credits</label>
+                    <input type="number" id="editCourseCredits" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseInstructor">Instructor</label>
+                    <select id="editCourseInstructor">
+                        <option value="">Select Instructor (Optional)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editModality">Modality</label>
+                    <select id="editModality" required>
+                        <option value="in-person">🏫 In-Person</option>
+                        <option value="online">💻 Online</option>
+                        <option value="hybrid">🔄 Hybrid</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for selecting modality when dropping course -->
+    <div id="modalityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Modality</h2>
+            </div>
+            <div class="modality-options">
+                <button class="modality-btn" onclick="selectModality('in-person')">
+                    <span class="modality-icon">🏫</span>
+                    In-Person
+                </button>
+                <button class="modality-btn" onclick="selectModality('online')">
+                    <span class="modality-icon">💻</span>
+                    Online
+                </button>
+                <button class="modality-btn" onclick="selectModality('hybrid')">
+                    <span class="modality-icon">🔄</span>
+                    Hybrid
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
