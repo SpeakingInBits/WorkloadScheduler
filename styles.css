@@ -497,6 +497,10 @@ input:focus, select:focus {
     padding: 20px;
 }
 
+#editInstructorForm {
+    padding: 20px;
+}
+
 .form-group {
     margin-bottom: 15px;
 }

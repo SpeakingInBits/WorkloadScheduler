@@ -73,7 +73,7 @@ function initializeEventListeners() {
         const name = document.getElementById('editCourseName').value.trim();
         const credits = document.getElementById('editCourseCredits').value;
         const instructorId = document.getElementById('editCourseInstructor').value;
-        const modality = document.getElementById('editModality').value;
+        const modality = document.getElementById('editModality').value || 'in-person';
         
         if (name && credits) {
             saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex);
@@ -421,6 +421,10 @@ function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
     document.getElementById('editCourseCredits').value = course.credits;
     document.getElementById('editCourseInstructor').value = course.instructorId;
     
+    // Show modality field when editing from schedule
+    const modalityGroup = document.getElementById('editModality').closest('.form-group');
+    if (modalityGroup) modalityGroup.style.display = 'block';
+    
     // Get current modality for this scheduled slot
     const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
     let currentModality = 'in-person';
@@ -457,7 +461,10 @@ function showCourseModalFromList(courseId) {
     document.getElementById('editCourseName').value = course.name;
     document.getElementById('editCourseCredits').value = course.credits;
     document.getElementById('editCourseInstructor').value = course.instructorId;
-    document.getElementById('editModality').value = 'in-person'; // Default for unscheduled edit
+    
+    // Hide modality field when editing from list
+    const modalityGroup = document.getElementById('editModality').closest('.form-group');
+    if (modalityGroup) modalityGroup.style.display = 'none';
     
     // Update instructor dropdown
     const instructorSelect = document.getElementById('editCourseInstructor');
@@ -506,8 +513,8 @@ function saveCourseChanges(courseId, name, credits, instructorId, classroomId, d
         course.credits = parseInt(credits);
         course.instructorId = instructorId;
         
-        // Update modality for this specific scheduled slot
-        if (classroomId && day && timeslot) {
+        // Update modality for this specific scheduled slot (only if classroomId exists)
+        if (classroomId && day && timeslot && modality) {
             const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
             if (Array.isArray(slotData) && courseIndex !== undefined && courseIndex !== '') {
                 slotData[parseInt(courseIndex)].modality = modality;
