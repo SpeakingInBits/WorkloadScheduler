@@ -48,12 +48,16 @@ function initializeEventListeners() {
     
     // Modal close handlers
     document.querySelector('.close-modal').addEventListener('click', closeModal);
+    document.querySelector('.close-instructor-modal').addEventListener('click', closeInstructorModal);
     window.addEventListener('click', (e) => {
         if (e.target.id === 'courseModal') {
             closeModal();
         }
         if (e.target.id === 'modalityModal') {
             closeModalityModal();
+        }
+        if (e.target.id === 'instructorModal') {
+            closeInstructorModal();
         }
     });
     
@@ -73,6 +77,18 @@ function initializeEventListeners() {
         
         if (name && credits) {
             saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex);
+        }
+    });
+    
+    // Edit instructor form
+    document.getElementById('editInstructorForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const modal = document.getElementById('instructorModal');
+        const instructorId = modal.dataset.instructorId;
+        const name = document.getElementById('editInstructorName').value.trim();
+        
+        if (name) {
+            saveInstructorChanges(instructorId, name);
         }
     });
 }
@@ -434,6 +450,55 @@ function closeModal() {
     document.getElementById('courseModal').style.display = 'none';
 }
 
+function showCourseModalFromList(courseId) {
+    const course = appData.courses.find(c => c.id === courseId);
+    if (!course) return;
+    
+    document.getElementById('editCourseName').value = course.name;
+    document.getElementById('editCourseCredits').value = course.credits;
+    document.getElementById('editCourseInstructor').value = course.instructorId;
+    document.getElementById('editModality').value = 'in-person'; // Default for unscheduled edit
+    
+    // Update instructor dropdown
+    const instructorSelect = document.getElementById('editCourseInstructor');
+    instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
+        appData.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+    instructorSelect.value = course.instructorId || '';
+    
+    const modal = document.getElementById('courseModal');
+    modal.style.display = 'block';
+    modal.dataset.courseId = courseId;
+    modal.dataset.classroomId = '';
+    modal.dataset.day = '';
+    modal.dataset.timeslot = '';
+    modal.dataset.courseIndex = '';
+}
+
+function showInstructorModal(instructorId) {
+    const instructor = appData.instructors.find(i => i.id === instructorId);
+    if (!instructor) return;
+    
+    document.getElementById('editInstructorName').value = instructor.name;
+    
+    const modal = document.getElementById('instructorModal');
+    modal.style.display = 'block';
+    modal.dataset.instructorId = instructorId;
+}
+
+function closeInstructorModal() {
+    document.getElementById('instructorModal').style.display = 'none';
+}
+
+function saveInstructorChanges(instructorId, name) {
+    const instructor = appData.instructors.find(i => i.id === instructorId);
+    if (instructor) {
+        instructor.name = name;
+        saveToLocalStorage();
+        render();
+        closeInstructorModal();
+    }
+}
+
 function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex) {
     const course = appData.courses.find(c => c.id === courseId);
     if (course) {
@@ -476,12 +541,12 @@ function renderInstructors() {
     container.innerHTML = appData.instructors.map(instructor => {
         const workload = getInstructorWorkload(instructor.id);
         return `
-            <div class="instructor-item">
+            <div class="instructor-item" ondblclick="showInstructorModal('${instructor.id}')" style="cursor: pointer;">
                 <div>
                     <div>${instructor.name}</div>
                     <div class="workload">${workload} credits</div>
                 </div>
-                <button class="delete-btn" onclick="deleteInstructor('${instructor.id}')">Delete</button>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteInstructor('${instructor.id}')">Delete</button>
             </div>
         `;
     }).join('');
@@ -507,12 +572,13 @@ function renderCourses() {
         return `
             <div class="course-item ${statusClass}" draggable="true" 
                  ondragstart="handleDragStart(event, '${course.id}')"
-                 ondragend="handleDragEnd(event)">
+                 ondragend="handleDragEnd(event)"
+                 ondblclick="showCourseModalFromList('${course.id}')">
                 <div class="course-info">
                     <div class="course-name">${course.name}</div>
                     <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}</div>
                 </div>
-                <button class="delete-btn" onclick="deleteCourse('${course.id}')">Delete</button>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteCourse('${course.id}')">Delete</button>
             </div>
         `;
     }).join('');
@@ -665,7 +731,8 @@ function renderSchedule() {
                     </div>
                 `).join('')}
             </div>
-        ` : `            <div class="classroom-schedule ${!classroom.visible ? 'hidden' : ''}">
+        ` : `
+            <div class="classroom-schedule ${!classroom.visible ? 'hidden' : ''}">
                 <div class="day-header"></div>
                 ${DAYS.map(day => `<div class="day-header">${day}</div>`).join('')}
                 <div class="time-label">No times</div>
@@ -705,7 +772,8 @@ function renderSchedule() {
                         return `<div class="time-slot" style="background: #f0f0f0;"></div>`;
                     }
                 }).join('')}
-            </div>            <div class="timeslot-form-header" onclick="toggleTimeslotForm('${classroom.id}')">
+            </div>
+            <div class="timeslot-form-header" onclick="toggleTimeslotForm('${classroom.id}')">
                 <span>${classroom.timeslotFormExpanded !== false ? '▼' : '▶'} Manage Time Slots</span>
             </div>
             <div class="timeslot-form" style="display: ${classroom.timeslotFormExpanded !== false ? 'block' : 'none'};">

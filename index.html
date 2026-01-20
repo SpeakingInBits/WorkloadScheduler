@@ -100,6 +100,26 @@
         </div>
     </div>
 
+    <!-- Modal for editing instructor -->
+    <div id="instructorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Instructor</h2>
+                <span class="close-instructor-modal">&times;</span>
+            </div>
+            <form id="editInstructorForm">
+                <div class="form-group">
+                    <label for="editInstructorName">Instructor Name</label>
+                    <input type="text" id="editInstructorName" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeInstructorModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal for selecting modality when dropping course -->
     <div id="modalityModal" class="modal">
         <div class="modal-content">
