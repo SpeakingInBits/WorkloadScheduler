@@ -967,12 +967,30 @@ function loadFromLocalStorage() {
 
 // Export/Import functions
 function exportData() {
-    const dataStr = JSON.stringify(appData, null, 2);
+    // Prompt for filename
+    const defaultName = `workload-schedule-${new Date().toISOString().split('T')[0]}`;
+    const filename = prompt('Enter filename for export (without .json extension):', defaultName);
+    
+    if (filename === null) {
+        // User cancelled
+        return;
+    }
+    
+    const finalFilename = filename.trim() || defaultName;
+    
+    // Add version number to exported data
+    const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        data: appData
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `workload-schedule-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `${finalFilename}.json`;
     link.click();
     URL.revokeObjectURL(url);
 }
@@ -985,12 +1003,29 @@ function importData(e) {
     reader.onload = (event) => {
         try {
             const imported = JSON.parse(event.target.result);
-            // Validate structure
-            if (imported.instructors && imported.courses && imported.classrooms && imported.schedule) {
+            
+            // Check if this is versioned data (new format)
+            if (imported.version && imported.data) {
+                // Handle versioned import
+                const version = imported.version;
+                const data = imported.data;
+                
+                // Validate structure
+                if (data.instructors && data.courses && data.classrooms && data.schedule) {
+                    appData = data;
+                    saveToLocalStorage();
+                    render();
+                    alert(`Data imported successfully! (Version ${version})`);
+                } else {
+                    alert('Invalid data format in versioned file');
+                }
+            } 
+            // Handle legacy format (direct appData)
+            else if (imported.instructors && imported.courses && imported.classrooms && imported.schedule) {
                 appData = imported;
                 saveToLocalStorage();
                 render();
-                alert('Data imported successfully!');
+                alert('Data imported successfully! (Legacy format)');
             } else {
                 alert('Invalid data format');
             }
