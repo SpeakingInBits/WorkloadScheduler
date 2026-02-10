@@ -96,12 +96,28 @@ function createNewSchedule() {
         return;
     }
     
-    appData.schedules[scheduleName] = {
-        instructors: [],
-        courses: [],
-        classrooms: [],
-        schedule: {}
-    };
+    // Ask if user wants to copy current schedule
+    const copyExisting = confirm(`Would you like to copy the current schedule "${appData.currentSchedule}" to the new schedule?\n\nClick OK to copy, or Cancel to start with an empty schedule.`);
+    
+    if (copyExisting) {
+        // Deep copy the current schedule data
+        const currentData = getCurrentScheduleData();
+        appData.schedules[scheduleName] = {
+            instructors: JSON.parse(JSON.stringify(currentData.instructors || [])),
+            courses: JSON.parse(JSON.stringify(currentData.courses || [])),
+            classrooms: JSON.parse(JSON.stringify(currentData.classrooms || [])),
+            schedule: JSON.parse(JSON.stringify(currentData.schedule || {}))
+        };
+    } else {
+        // Create empty schedule
+        appData.schedules[scheduleName] = {
+            instructors: [],
+            courses: [],
+            classrooms: [],
+            schedule: {}
+        };
+    }
+    
     appData.currentSchedule = scheduleName;
     saveToLocalStorage();
     renderScheduleSelector();
@@ -1154,32 +1170,74 @@ function loadFromLocalStorage() {
             const loaded = JSON.parse(saved);
             
             // Check if this is the new multi-schedule format
-            if (loaded.schedules && loaded.currentSchedule) {
-                appData = loaded;
-            } else if (loaded.instructors && loaded.courses && loaded.classrooms && loaded.schedule) {
+            if (loaded.schedules && typeof loaded.schedules === 'object' && loaded.currentSchedule) {
+                // Don't replace appData object, just update its properties to preserve getters
+                appData.schedules = loaded.schedules;
+                appData.currentSchedule = loaded.currentSchedule;
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
+                
+                // Validate that currentSchedule exists in schedules
+                if (!appData.schedules[appData.currentSchedule]) {
+                    // Current schedule doesn't exist, pick the first available one
+                    const firstSchedule = Object.keys(appData.schedules)[0];
+                    if (firstSchedule) {
+                        appData.currentSchedule = firstSchedule;
+                    } else {
+                        // No schedules exist, create default
+                        appData.schedules['Default Schedule'] = {
+                            instructors: [],
+                            courses: [],
+                            classrooms: [],
+                            schedule: {}
+                        };
+                        appData.currentSchedule = 'Default Schedule';
+                    }
+                }
+            } else if (loaded.instructors || loaded.courses || loaded.classrooms || loaded.schedule) {
                 // Migrate old single-schedule format to multi-schedule format
-                appData = {
-                    schedules: {
-                        'Default Schedule': {
-                            instructors: loaded.instructors || [],
-                            courses: loaded.courses || [],
-                            classrooms: loaded.classrooms || [],
-                            schedule: loaded.schedule || {}
-                        }
-                    },
-                    currentSchedule: 'Default Schedule',
-                    collapsedSections: loaded.collapsedSections || {},
-                    instructorFilter: loaded.instructorFilter || []
+                appData.schedules = {
+                    'Default Schedule': {
+                        instructors: loaded.instructors || [],
+                        courses: loaded.courses || [],
+                        classrooms: loaded.classrooms || [],
+                        schedule: loaded.schedule || {}
+                    }
                 };
+                appData.currentSchedule = 'Default Schedule';
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
+            } else {
+                // Unrecognized format, start fresh
+                console.warn('Unrecognized data format, initializing with default schedule');
+                return; // Let default initialization happen
             }
             
-            // Initialize missing properties
+            // Initialize missing global properties
             if (!appData.collapsedSections) appData.collapsedSections = {};
             if (!appData.instructorFilter) appData.instructorFilter = [];
+            if (!appData.schedules) appData.schedules = {};
+            if (!appData.currentSchedule) appData.currentSchedule = 'Default Schedule';
+            
+            // Ensure currentSchedule exists
+            if (!appData.schedules[appData.currentSchedule]) {
+                appData.schedules[appData.currentSchedule] = {
+                    instructors: [],
+                    courses: [],
+                    classrooms: [],
+                    schedule: {}
+                };
+            }
             
             // Migrate data for all schedules
             Object.keys(appData.schedules).forEach(scheduleName => {
                 const scheduleData = appData.schedules[scheduleName];
+                
+                // Ensure all required properties exist
+                if (!scheduleData.instructors) scheduleData.instructors = [];
+                if (!scheduleData.courses) scheduleData.courses = [];
+                if (!scheduleData.classrooms) scheduleData.classrooms = [];
+                if (!scheduleData.schedule) scheduleData.schedule = {};
                 
                 // Ensure instructors have colors
                 (scheduleData.instructors || []).forEach(instructor => {
@@ -1197,6 +1255,11 @@ function loadFromLocalStorage() {
                         DAYS.forEach(day => {
                             classroom.timeslots[day] = [...oldTimeslots];
                         });
+                    }
+                    
+                    // Ensure timeslots is an object
+                    if (!classroom.timeslots || typeof classroom.timeslots !== 'object') {
+                        classroom.timeslots = {};
                     }
                     
                     // Ensure all days exist
