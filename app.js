@@ -315,7 +315,7 @@ function deleteInstructor(id) {
 
 function getInstructorWorkload(instructorId) {
     return appData.courses
-        .filter(c => c.instructorId === instructorId)
+        .filter(c => c.instructorId === instructorId && isCourseScheduled(c.id))
         .reduce((sum, c) => sum + c.credits, 0);
 }
 
