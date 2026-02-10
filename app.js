@@ -1,10 +1,58 @@
 // Data structure
 let appData = {
-    instructors: [],
-    courses: [],
-    classrooms: [],
-    schedule: {} // { classroomId: { day: { time: { courseId, modality } } } }
+    schedules: {
+        'Default Schedule': {
+            instructors: [],
+            courses: [],
+            classrooms: [],
+            schedule: {} // { classroomId: { day: { time: { courseId, modality } } } }
+        }
+    },
+    currentSchedule: 'Default Schedule',
+    collapsedSections: {}, // Track which sections are collapsed
+    instructorFilter: [] // Array of instructor IDs to filter
 };
+
+// Helper to get current schedule data
+function getCurrentScheduleData() {
+    if (!appData.schedules[appData.currentSchedule]) {
+        appData.schedules[appData.currentSchedule] = {
+            instructors: [],
+            courses: [],
+            classrooms: [],
+            schedule: {}
+        };
+    }
+    const scheduleData = appData.schedules[appData.currentSchedule];
+    
+    // Ensure all required properties exist
+    if (!scheduleData.instructors) scheduleData.instructors = [];
+    if (!scheduleData.courses) scheduleData.courses = [];
+    if (!scheduleData.classrooms) scheduleData.classrooms = [];
+    if (!scheduleData.schedule) scheduleData.schedule = {};
+    
+    return scheduleData;
+}
+
+// Helper properties for backward compatibility
+Object.defineProperties(appData, {
+    instructors: {
+        get() { return getCurrentScheduleData().instructors; },
+        set(value) { getCurrentScheduleData().instructors = value; }
+    },
+    courses: {
+        get() { return getCurrentScheduleData().courses; },
+        set(value) { getCurrentScheduleData().courses = value; }
+    },
+    classrooms: {
+        get() { return getCurrentScheduleData().classrooms; },
+        set(value) { getCurrentScheduleData().classrooms = value; }
+    },
+    schedule: {
+        get() { return getCurrentScheduleData().schedule; },
+        set(value) { getCurrentScheduleData().schedule = value; }
+    }
+});
 
 // Store pending drop data
 let pendingDrop = null;
@@ -16,8 +64,148 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Arranged'
 document.addEventListener('DOMContentLoaded', () => {
     loadFromLocalStorage();
     initializeEventListeners();
+    renderScheduleSelector();
     render();
 });
+
+// Schedule Management Functions
+function renderScheduleSelector() {
+    const select = document.getElementById('scheduleSelect');
+    if (!select) return;
+    
+    const scheduleNames = Object.keys(appData.schedules);
+    select.innerHTML = scheduleNames.map(name => 
+        `<option value="${name}" ${name === appData.currentSchedule ? 'selected' : ''}>${name}</option>`
+    ).join('');
+}
+
+function switchSchedule() {
+    const select = document.getElementById('scheduleSelect');
+    appData.currentSchedule = select.value;
+    saveToLocalStorage();
+    render();
+}
+
+function createNewSchedule() {
+    const name = prompt('Enter name for new schedule:');
+    if (!name || !name.trim()) return;
+    
+    const scheduleName = name.trim();
+    if (appData.schedules[scheduleName]) {
+        alert('A schedule with this name already exists.');
+        return;
+    }
+    
+    // Ask if user wants to copy current schedule
+    const copyExisting = confirm(`Would you like to copy the current schedule "${appData.currentSchedule}" to the new schedule?\n\nClick OK to copy, or Cancel to start with an empty schedule.`);
+    
+    if (copyExisting) {
+        // Deep copy the current schedule data
+        const currentData = getCurrentScheduleData();
+        appData.schedules[scheduleName] = {
+            instructors: JSON.parse(JSON.stringify(currentData.instructors || [])),
+            courses: JSON.parse(JSON.stringify(currentData.courses || [])),
+            classrooms: JSON.parse(JSON.stringify(currentData.classrooms || [])),
+            schedule: JSON.parse(JSON.stringify(currentData.schedule || {}))
+        };
+    } else {
+        // Create empty schedule
+        appData.schedules[scheduleName] = {
+            instructors: [],
+            courses: [],
+            classrooms: [],
+            schedule: {}
+        };
+    }
+    
+    appData.currentSchedule = scheduleName;
+    saveToLocalStorage();
+    renderScheduleSelector();
+    render();
+}
+
+function renameCurrentSchedule() {
+    const oldName = appData.currentSchedule;
+    const newName = prompt('Enter new name for schedule:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    
+    const scheduleName = newName.trim();
+    if (appData.schedules[scheduleName]) {
+        alert('A schedule with this name already exists.');
+        return;
+    }
+    
+    appData.schedules[scheduleName] = appData.schedules[oldName];
+    delete appData.schedules[oldName];
+    appData.currentSchedule = scheduleName;
+    saveToLocalStorage();
+    renderScheduleSelector();
+    render();
+}
+
+function deleteCurrentSchedule() {
+    if (Object.keys(appData.schedules).length === 1) {
+        alert('Cannot delete the last schedule.');
+        return;
+    }
+    
+    if (!confirm(`Delete schedule "${appData.currentSchedule}"?`)) return;
+    
+    delete appData.schedules[appData.currentSchedule];
+    appData.currentSchedule = Object.keys(appData.schedules)[0];
+    saveToLocalStorage();
+    renderScheduleSelector();
+    render();
+}
+
+// Collapsible Sections
+function toggleSection(sectionName) {
+    const section = document.getElementById(`${sectionName}-section`);
+    const icon = document.getElementById(`${sectionName}-icon`);
+    
+    if (!section || !icon) return;
+    
+    const isCollapsed = section.style.display === 'none';
+    section.style.display = isCollapsed ? 'block' : 'none';
+    icon.textContent = isCollapsed ? '▼' : '▶';
+    
+    // Save state
+    if (!appData.collapsedSections) appData.collapsedSections = {};
+    appData.collapsedSections[sectionName] = !isCollapsed;
+    saveToLocalStorage();
+}
+
+// Instructor Filter Functions
+function toggleInstructorFilter(e) {
+    e.stopPropagation();
+    const filterList = document.getElementById('instructorFilterList');
+    filterList.style.display = filterList.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateInstructorFilter(instructorId, checked) {
+    if (!appData.instructorFilter) appData.instructorFilter = [];
+    
+    if (checked) {
+        if (!appData.instructorFilter.includes(instructorId)) {
+            appData.instructorFilter.push(instructorId);
+        }
+    } else {
+        appData.instructorFilter = appData.instructorFilter.filter(id => id !== instructorId);
+    }
+    
+    saveToLocalStorage();
+    renderSchedule(); // Re-render schedule with filter applied
+}
+
+// Close filter dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const filterList = document.getElementById('instructorFilterList');
+    const filterToggle = document.querySelector('.filter-toggle');
+    if (filterList && filterToggle && !filterToggle.contains(e.target) && !filterList.contains(e.target)) {
+        filterList.style.display = 'none';
+    }
+});
+
 
 // Event Listeners
 function initializeEventListeners() {
@@ -86,9 +274,10 @@ function initializeEventListeners() {
         const modal = document.getElementById('instructorModal');
         const instructorId = modal.dataset.instructorId;
         const name = document.getElementById('editInstructorName').value.trim();
+        const color = document.getElementById('editInstructorColor').value;
         
         if (name) {
-            saveInstructorChanges(instructorId, name);
+            saveInstructorChanges(instructorId, name, color);
         }
     });
 }
@@ -101,7 +290,8 @@ function addInstructor() {
     if (name) {
         const instructor = {
             id: Date.now().toString(),
-            name: name
+            name: name,
+            color: '#3498db' // Default color
         };
         appData.instructors.push(instructor);
         nameInput.value = '';
@@ -545,6 +735,7 @@ function showInstructorModal(instructorId) {
     if (!instructor) return;
     
     document.getElementById('editInstructorName').value = instructor.name;
+    document.getElementById('editInstructorColor').value = instructor.color || '#3498db';
     
     const modal = document.getElementById('instructorModal');
     modal.style.display = 'block';
@@ -555,10 +746,11 @@ function closeInstructorModal() {
     document.getElementById('instructorModal').style.display = 'none';
 }
 
-function saveInstructorChanges(instructorId, name) {
+function saveInstructorChanges(instructorId, name, color) {
     const instructor = appData.instructors.find(i => i.id === instructorId);
     if (instructor) {
         instructor.name = name;
+        instructor.color = color || '#3498db';
         saveToLocalStorage();
         render();
         closeInstructorModal();
@@ -594,6 +786,35 @@ function render() {
     renderInstructors();
     renderCourses();
     renderSchedule();
+    restoreCollapsedSections();
+}
+
+// Helper function to get scheduled course style based on instructor color and filter
+function getScheduledCourseStyle(course) {
+    const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
+    const instructorColor = instructor ? (instructor.color || '#3498db') : '#95a5a6';
+    
+    // Check if filtering is active and this instructor is not in the filter
+    const isFiltering = appData.instructorFilter && appData.instructorFilter.length > 0;
+    const isFiltered = isFiltering && course && course.instructorId && !appData.instructorFilter.includes(course.instructorId);
+    const opacity = isFiltered ? '0.2' : '1';
+    
+    return `background: ${instructorColor}; opacity: ${opacity};`;
+}
+
+function restoreCollapsedSections() {
+    if (!appData.collapsedSections) return;
+    
+    Object.keys(appData.collapsedSections).forEach(sectionName => {
+        const isCollapsed = appData.collapsedSections[sectionName];
+        const section = document.getElementById(`${sectionName}-section`);
+        const icon = document.getElementById(`${sectionName}-icon`);
+        
+        if (section && icon) {
+            section.style.display = isCollapsed ? 'none' : 'block';
+            icon.textContent = isCollapsed ? '▶' : '▼';
+        }
+    });
 }
 
 function renderInstructors() {
@@ -601,13 +822,17 @@ function renderInstructors() {
     
     if (appData.instructors.length === 0) {
         container.innerHTML = '<p style="color: #7f8c8d; font-size: 14px;">No instructors added yet</p>';
+        // Also clear the filter list
+        const filterList = document.getElementById('instructorFilterList');
+        if (filterList) filterList.innerHTML = '<p style="padding: 10px; color: #7f8c8d;">No instructors</p>';
         return;
     }
     
     container.innerHTML = appData.instructors.map(instructor => {
         const workload = getInstructorWorkload(instructor.id);
+        const color = instructor.color || '#3498db';
         return `
-            <div class="instructor-item" ondblclick="showInstructorModal('${instructor.id}')" style="cursor: pointer;">
+            <div class="instructor-item" ondblclick="showInstructorModal('${instructor.id}')" style="cursor: pointer; border-left: 4px solid ${color};">
                 <div>
                     <div>${instructor.name}</div>
                     <div class="workload">${workload} credits</div>
@@ -616,6 +841,24 @@ function renderInstructors() {
             </div>
         `;
     }).join('');
+    
+    // Render filter list
+    const filterList = document.getElementById('instructorFilterList');
+    if (filterList) {
+        if (!appData.instructorFilter) appData.instructorFilter = [];
+        filterList.innerHTML = appData.instructors.map(instructor => {
+            const checked = appData.instructorFilter.includes(instructor.id);
+            const color = instructor.color || '#3498db';
+            return `
+                <label class="filter-checkbox">
+                    <input type="checkbox" ${checked ? 'checked' : ''} 
+                           onchange="updateInstructorFilter('${instructor.id}', this.checked)">
+                    <span class="color-indicator" style="background: ${color};"></span>
+                    <span>${instructor.name}</span>
+                </label>
+            `;
+        }).join('');
+    }
 }
 
 function renderCourses() {
@@ -700,8 +943,10 @@ function renderSchedule() {
                                         ${courses.map((item, index) => {
                                             const course = appData.courses.find(c => c.id === item.courseId);
                                             const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
+                                            const courseStyle = getScheduledCourseStyle(course);
                                             return `
                                                 <div class="scheduled-course" 
+                                                     style="${courseStyle}"
                                                      draggable="true"
                                                      data-source-classroom-id="${classroom.id}"
                                                      data-source-day="${day}"
@@ -752,8 +997,10 @@ function renderSchedule() {
                                     ${courses.map((item, index) => {
                                         const course = appData.courses.find(c => c.id === item.courseId);
                                         const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
+                                        const courseStyle = getScheduledCourseStyle(course);
                                         return `
                                             <div class="scheduled-course" 
+                                                 style="${courseStyle}"
                                                  draggable="true"
                                                  data-source-classroom-id="${classroom.id}"
                                                  data-source-day="${day}"
@@ -837,8 +1084,9 @@ function renderSchedule() {
                                 ${courses.map((item, index) => {
                                     const course = appData.courses.find(c => c.id === item.courseId);
                                     const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
+                                    const courseStyle = getScheduledCourseStyle(course);
                                     return `
-                                        <div class="scheduled-course" ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
+                                        <div class="scheduled-course" style="${courseStyle}" ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                             <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
                                             <div class="course-name">${course ? course.name : 'Unknown'}</div>
                                             <div class="course-meta">
@@ -919,57 +1167,140 @@ function loadFromLocalStorage() {
     const saved = localStorage.getItem('workloadSchedulerData');
     if (saved) {
         try {
-            appData = JSON.parse(saved);
+            const loaded = JSON.parse(saved);
             
-            // Migrate old data structure to new
-            appData.classrooms.forEach(classroom => {
-                // Convert old array-based timeslots to per-day timeslots
-                if (Array.isArray(classroom.timeslots)) {
-                    const oldTimeslots = [...classroom.timeslots];
-                    classroom.timeslots = {};
-                    DAYS.forEach(day => {
-                        classroom.timeslots[day] = [...oldTimeslots];
-                    });
-                }
+            // Check if this is the new multi-schedule format
+            if (loaded.schedules && typeof loaded.schedules === 'object' && loaded.currentSchedule) {
+                // Don't replace appData object, just update its properties to preserve getters
+                appData.schedules = loaded.schedules;
+                appData.currentSchedule = loaded.currentSchedule;
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
                 
-                // Ensure all days exist
-                DAYS.forEach(day => {
-                    if (!classroom.timeslots[day]) {
-                        classroom.timeslots[day] = [];
+                // Validate that currentSchedule exists in schedules
+                if (!appData.schedules[appData.currentSchedule]) {
+                    // Current schedule doesn't exist, pick the first available one
+                    const firstSchedule = Object.keys(appData.schedules)[0];
+                    if (firstSchedule) {
+                        appData.currentSchedule = firstSchedule;
+                    } else {
+                        // No schedules exist, create default
+                        appData.schedules['Default Schedule'] = {
+                            instructors: [],
+                            courses: [],
+                            classrooms: [],
+                            schedule: {}
+                        };
+                        appData.currentSchedule = 'Default Schedule';
+                    }
+                }
+            } else if (loaded.instructors || loaded.courses || loaded.classrooms || loaded.schedule) {
+                // Migrate old single-schedule format to multi-schedule format
+                appData.schedules = {
+                    'Default Schedule': {
+                        instructors: loaded.instructors || [],
+                        courses: loaded.courses || [],
+                        classrooms: loaded.classrooms || [],
+                        schedule: loaded.schedule || {}
+                    }
+                };
+                appData.currentSchedule = 'Default Schedule';
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
+            } else {
+                // Unrecognized format, start fresh
+                console.warn('Unrecognized data format, initializing with default schedule');
+                return; // Let default initialization happen
+            }
+            
+            // Initialize missing global properties
+            if (!appData.collapsedSections) appData.collapsedSections = {};
+            if (!appData.instructorFilter) appData.instructorFilter = [];
+            if (!appData.schedules) appData.schedules = {};
+            if (!appData.currentSchedule) appData.currentSchedule = 'Default Schedule';
+            
+            // Ensure currentSchedule exists
+            if (!appData.schedules[appData.currentSchedule]) {
+                appData.schedules[appData.currentSchedule] = {
+                    instructors: [],
+                    courses: [],
+                    classrooms: [],
+                    schedule: {}
+                };
+            }
+            
+            // Migrate data for all schedules
+            Object.keys(appData.schedules).forEach(scheduleName => {
+                const scheduleData = appData.schedules[scheduleName];
+                
+                // Ensure all required properties exist
+                if (!scheduleData.instructors) scheduleData.instructors = [];
+                if (!scheduleData.courses) scheduleData.courses = [];
+                if (!scheduleData.classrooms) scheduleData.classrooms = [];
+                if (!scheduleData.schedule) scheduleData.schedule = {};
+                
+                // Ensure instructors have colors
+                (scheduleData.instructors || []).forEach(instructor => {
+                    if (!instructor.color) {
+                        instructor.color = '#3498db';
                     }
                 });
                 
-                // Initialize timeslotFormExpanded if it doesn't exist
-                if (classroom.timeslotFormExpanded === undefined) {
-                    classroom.timeslotFormExpanded = true;
-                }
-                
-                // Ensure schedule object exists
-                if (!appData.schedule[classroom.id]) {
-                    appData.schedule[classroom.id] = {};
-                    DAYS.forEach(day => {
-                        appData.schedule[classroom.id][day] = {};
-                    });
-                }
-                
-                // Migrate schedule from old format to new array format
-                DAYS.forEach(day => {
-                    if (appData.schedule[classroom.id][day]) {
-                        Object.keys(appData.schedule[classroom.id][day]).forEach(time => {
-                            const value = appData.schedule[classroom.id][day][time];
-                            if (typeof value === 'string') {
-                                // Very old format: just courseId string
-                                appData.schedule[classroom.id][day][time] = [{
-                                    courseId: value,
-                                    modality: 'in-person'
-                                }];
-                            } else if (value && !Array.isArray(value) && value.courseId) {
-                                // Old format: single object { courseId, modality }
-                                appData.schedule[classroom.id][day][time] = [value];
-                            }
-                            // New format is already an array, no change needed
+                // Migrate classroom data
+                (scheduleData.classrooms || []).forEach(classroom => {
+                    // Convert old array-based timeslots to per-day timeslots
+                    if (Array.isArray(classroom.timeslots)) {
+                        const oldTimeslots = [...classroom.timeslots];
+                        classroom.timeslots = {};
+                        DAYS.forEach(day => {
+                            classroom.timeslots[day] = [...oldTimeslots];
                         });
                     }
+                    
+                    // Ensure timeslots is an object
+                    if (!classroom.timeslots || typeof classroom.timeslots !== 'object') {
+                        classroom.timeslots = {};
+                    }
+                    
+                    // Ensure all days exist
+                    DAYS.forEach(day => {
+                        if (!classroom.timeslots[day]) {
+                            classroom.timeslots[day] = [];
+                        }
+                    });
+                    
+                    // Initialize timeslotFormExpanded if it doesn't exist
+                    if (classroom.timeslotFormExpanded === undefined) {
+                        classroom.timeslotFormExpanded = true;
+                    }
+                    
+                    // Ensure schedule object exists
+                    if (!scheduleData.schedule[classroom.id]) {
+                        scheduleData.schedule[classroom.id] = {};
+                        DAYS.forEach(day => {
+                            scheduleData.schedule[classroom.id][day] = {};
+                        });
+                    }
+                    
+                    // Migrate schedule from old format to new array format
+                    DAYS.forEach(day => {
+                        if (scheduleData.schedule[classroom.id][day]) {
+                            Object.keys(scheduleData.schedule[classroom.id][day]).forEach(time => {
+                                const value = scheduleData.schedule[classroom.id][day][time];
+                                if (typeof value === 'string') {
+                                    // Very old format: just courseId string
+                                    scheduleData.schedule[classroom.id][day][time] = [{
+                                        courseId: value,
+                                        modality: 'in-person'
+                                    }];
+                                } else if (value && !Array.isArray(value) && value.courseId) {
+                                    // Old format: single object { courseId, modality }
+                                    scheduleData.schedule[classroom.id][day][time] = [value];
+                                }
+                                // New format is already an array, no change needed
+                            });
+                        }
+                    });
                 });
             });
             
@@ -982,8 +1313,8 @@ function loadFromLocalStorage() {
 
 // Export/Import functions
 function exportData() {
-    // Prompt for filename
-    const defaultName = `workload-schedule-${new Date().toISOString().split('T')[0]}`;
+    // Prompt for filename - default to current schedule name
+    const defaultName = `${appData.currentSchedule.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
     const filename = prompt('Enter filename for export (without .json extension):', defaultName);
     
     if (filename === null) {
@@ -993,11 +1324,12 @@ function exportData() {
     
     const finalFilename = filename.trim() || defaultName;
     
-    // Add version number to exported data
+    // Export only the current schedule
     const exportData = {
-        version: '1.0',
+        version: '2.0',
         exportDate: new Date().toISOString(),
-        data: appData
+        scheduleName: appData.currentSchedule,
+        data: getCurrentScheduleData()
     };
     
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -1019,28 +1351,103 @@ function importData(e) {
         try {
             const imported = JSON.parse(event.target.result);
             
-            // Check if this is versioned data (new format)
-            if (imported.version && imported.data) {
-                // Handle versioned import
-                const version = imported.version;
-                const data = imported.data;
+            // Check if this is new version 2.0 format (single schedule with name)
+            if (imported.version === '2.0' && imported.scheduleName && imported.data) {
+                const scheduleData = imported.data;
                 
                 // Validate structure
-                if (data.instructors && data.courses && data.classrooms && data.schedule) {
-                    appData = data;
+                if (scheduleData.instructors && scheduleData.courses && scheduleData.classrooms && scheduleData.schedule) {
+                    // Prompt for schedule name (default to imported name)
+                    const scheduleName = prompt('Enter name for this schedule:', imported.scheduleName);
+                    if (!scheduleName || !scheduleName.trim()) {
+                        alert('Import cancelled.');
+                        return;
+                    }
+                    
+                    const finalName = scheduleName.trim();
+                    
+                    // Check if schedule exists and confirm override
+                    if (appData.schedules[finalName]) {
+                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
+                            return;
+                        }
+                    }
+                    
+                    // Add or override the schedule
+                    appData.schedules[finalName] = scheduleData;
+                    appData.currentSchedule = finalName;
+                    
                     saveToLocalStorage();
+                    renderScheduleSelector();
                     render();
-                    alert(`Data imported successfully! (Version ${version})`);
+                    alert(`Schedule "${finalName}" imported successfully!`);
+                } else {
+                    alert('Invalid data format in file');
+                }
+            }
+            // Handle version 1.0 format (full appData)
+            else if (imported.version === '1.0' && imported.data) {
+                const data = imported.data;
+                
+                // Check if this is the old appData format
+                if (data.instructors && data.courses && data.classrooms && data.schedule) {
+                    // Convert to new multi-schedule format
+                    const scheduleName = prompt('Enter name for this schedule:', 'Imported Schedule');
+                    if (!scheduleName || !scheduleName.trim()) {
+                        alert('Import cancelled.');
+                        return;
+                    }
+                    
+                    const finalName = scheduleName.trim();
+                    if (appData.schedules[finalName]) {
+                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
+                            return;
+                        }
+                    }
+                    
+                    appData.schedules[finalName] = {
+                        instructors: data.instructors,
+                        courses: data.courses,
+                        classrooms: data.classrooms,
+                        schedule: data.schedule
+                    };
+                    appData.currentSchedule = finalName;
+                    
+                    saveToLocalStorage();
+                    renderScheduleSelector();
+                    render();
+                    alert(`Schedule "${finalName}" imported successfully! (Version 1.0)`);
                 } else {
                     alert('Invalid data format in versioned file');
                 }
             } 
-            // Handle legacy format (direct appData)
+            // Handle legacy format (direct appData without version)
             else if (imported.instructors && imported.courses && imported.classrooms && imported.schedule) {
-                appData = imported;
+                const scheduleName = prompt('Enter name for this schedule:', 'Imported Schedule');
+                if (!scheduleName || !scheduleName.trim()) {
+                    alert('Import cancelled.');
+                    return;
+                }
+                
+                const finalName = scheduleName.trim();
+                if (appData.schedules[finalName]) {
+                    if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
+                        return;
+                    }
+                }
+                
+                appData.schedules[finalName] = {
+                    instructors: imported.instructors,
+                    courses: imported.courses,
+                    classrooms: imported.classrooms,
+                    schedule: imported.schedule
+                };
+                appData.currentSchedule = finalName;
+                
                 saveToLocalStorage();
+                renderScheduleSelector();
                 render();
-                alert('Data imported successfully! (Legacy format)');
+                alert(`Schedule "${finalName}" imported successfully! (Legacy format)`);
             } else {
                 alert('Invalid data format');
             }

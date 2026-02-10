@@ -10,9 +10,15 @@
     <div class="container">
         <header>
             <h1>Instructor Workload Scheduler <span id="helpIcon" class="help-icon" onclick="showHelpModal()" title="Help">?</span></h1>
+            <div class="schedule-controls">
+                <select id="scheduleSelect" onchange="switchSchedule()"></select>
+                <button id="newScheduleBtn" onclick="createNewSchedule()">New Schedule</button>
+                <button id="renameScheduleBtn" onclick="renameCurrentSchedule()">Rename</button>
+                <button id="deleteScheduleBtn" onclick="deleteCurrentSchedule()">Delete</button>
+            </div>
             <div class="data-controls">
-                <button id="exportBtn">Export Data</button>
-                <button id="importBtn">Import Data</button>
+                <button id="exportBtn">Export Schedule</button>
+                <button id="importBtn">Import Schedule</button>
                 <input type="file" id="fileInput" accept=".json" style="display: none;">
             </div>
         </header>
@@ -22,35 +28,54 @@
             <aside class="sidebar">
                 <!-- Instructors Section -->
                 <section class="panel">
-                    <h2>Instructors</h2>
-                    <form id="addInstructorForm">
-                        <input type="text" id="instructorName" placeholder="Instructor name" required>
-                        <button type="submit">Add Instructor</button>
-                    </form>
-                    <div id="instructorsList"></div>
+                    <h2 class="collapsible-header" onclick="toggleSection('instructors')">
+                        <span class="collapse-icon" id="instructors-icon">▼</span> Instructors
+                    </h2>
+                    <div id="instructors-section" class="collapsible-section">
+                        <form id="addInstructorForm">
+                            <input type="text" id="instructorName" placeholder="Instructor name" required>
+                            <button type="submit">Add Instructor</button>
+                        </form>
+                        <div class="instructor-filter">
+                            <label style="font-size: 14px; font-weight: 600; margin-bottom: 5px; display: block;">Filter Instructors:</label>
+                            <div class="filter-dropdown">
+                                <button type="button" class="filter-toggle" onclick="toggleInstructorFilter(event)">Select Instructors ▼</button>
+                                <div id="instructorFilterList" class="filter-list" style="display: none;"></div>
+                            </div>
+                        </div>
+                        <div id="instructorsList"></div>
+                    </div>
                 </section>
 
                 <!-- Courses Section -->
                 <section class="panel">
-                    <h2>Courses</h2>
-                    <form id="addCourseForm">
-                        <input type="text" id="courseName" placeholder="Course name" required>
-                        <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
-                        <select id="courseInstructor">
-                            <option value="">Select Instructor (Optional)</option>
-                        </select>
-                        <button type="submit">Add Course</button>
-                    </form>
-                    <div id="coursesList"></div>
+                    <h2 class="collapsible-header" onclick="toggleSection('courses')">
+                        <span class="collapse-icon" id="courses-icon">▼</span> Courses
+                    </h2>
+                    <div id="courses-section" class="collapsible-section">
+                        <form id="addCourseForm">
+                            <input type="text" id="courseName" placeholder="Course name" required>
+                            <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
+                            <select id="courseInstructor">
+                                <option value="">Select Instructor (Optional)</option>
+                            </select>
+                            <button type="submit">Add Course</button>
+                        </form>
+                        <div id="coursesList"></div>
+                    </div>
                 </section>
 
                 <!-- Classrooms Section -->
                 <section class="panel">
-                    <h2>Classrooms</h2>
-                    <form id="addClassroomForm">
-                        <input type="text" id="roomNumber" placeholder="Room number" required>
-                        <button type="submit">Add Classroom</button>
-                    </form>
+                    <h2 class="collapsible-header" onclick="toggleSection('classrooms')">
+                        <span class="collapse-icon" id="classrooms-icon">▼</span> Classrooms
+                    </h2>
+                    <div id="classrooms-section" class="collapsible-section">
+                        <form id="addClassroomForm">
+                            <input type="text" id="roomNumber" placeholder="Room number" required>
+                            <button type="submit">Add Classroom</button>
+                        </form>
+                    </div>
                 </section>
             </aside>
 
@@ -111,6 +136,10 @@
                 <div class="form-group">
                     <label for="editInstructorName">Instructor Name</label>
                     <input type="text" id="editInstructorName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editInstructorColor">Color</label>
+                    <input type="color" id="editInstructorColor" value="#3498db">
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeInstructorModal()">Cancel</button>
