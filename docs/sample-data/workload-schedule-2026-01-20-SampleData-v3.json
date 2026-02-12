@@ -1,0 +1,257 @@
+{
+  "version": "3.0",
+  "exportDate": "2026-01-20T23:23:01.583Z",
+  "scheduleName": "Sample Schedule",
+  "programs": [
+    {
+      "id": "prog_cpw",
+      "name": "CPW"
+    }
+  ],
+  "courseCatalog": [
+    {
+      "id": "1768943509693",
+      "name": "",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "102",
+      "quarterTaken": "Q1",
+      "quartersOffered": ["Fall", "Winter"]
+    },
+    {
+      "id": "1768944520197",
+      "name": "Java II",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "141",
+      "quarterTaken": "Q1",
+      "quartersOffered": ["Fall", "Winter"]
+    },
+    {
+      "id": "1768944530333",
+      "name": "",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "152",
+      "quarterTaken": "Q2",
+      "quartersOffered": ["Winter", "Spring"]
+    },
+    {
+      "id": "1768944538509",
+      "name": ".NET",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "155",
+      "quarterTaken": "Q2",
+      "quartersOffered": ["Winter", "Spring"]
+    },
+    {
+      "id": "1768944552853",
+      "name": "Adv .NET Web",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "230",
+      "quarterTaken": "Q3",
+      "quartersOffered": ["Spring", "Summer"]
+    },
+    {
+      "id": "1768944564925",
+      "name": "Software Project",
+      "credits": 6,
+      "programId": "prog_cpw",
+      "courseNumber": "235",
+      "quarterTaken": "Q3",
+      "quartersOffered": ["Spring", "Summer"]
+    },
+    {
+      "id": "1768944577685",
+      "name": "Discrete Structures",
+      "credits": 5,
+      "programId": "prog_cpw",
+      "courseNumber": "300",
+      "quarterTaken": "Q4",
+      "quartersOffered": ["Fall", "Spring"]
+    },
+    {
+      "id": "1768944591021",
+      "name": "Computer Arch & OS",
+      "credits": 5,
+      "programId": "prog_cpw",
+      "courseNumber": "310",
+      "quarterTaken": "Q4",
+      "quartersOffered": ["Fall", "Spring"]
+    },
+    {
+      "id": "1768944600317",
+      "name": "Software Design",
+      "credits": 5,
+      "programId": "prog_cpw",
+      "courseNumber": "330",
+      "quarterTaken": "Q5",
+      "quartersOffered": []
+    }
+  ],
+  "data": {
+    "quarter": "Fall",
+    "instructors": [
+      {
+        "id": "1768943464941",
+        "name": "Mr. A"
+      },
+      {
+        "id": "1768943468941",
+        "name": "Second Person"
+      },
+      {
+        "id": "1768943473213",
+        "name": "Miss Third"
+      }
+    ],
+    "courseInstructors": {
+      "1768943509693": "1768943473213",
+      "1768944520197": "1768943473213",
+      "1768944530333": "1768943464941",
+      "1768944538509": "1768943464941",
+      "1768944552853": "1768943464941",
+      "1768944564925": "1768943464941",
+      "1768944577685": "1768943468941",
+      "1768944591021": "1768943468941",
+      "1768944600317": "1768943468941"
+    },
+    "classrooms": [
+      {
+        "id": "1768943518589",
+        "roomNumber": "205A",
+        "timeslots": {
+          "Monday": ["10:00-12:00", "13:00-15:00"],
+          "Tuesday": ["10:00-12:00", "13:00-15:00"],
+          "Wednesday": ["10:00-12:00", "13:00-15:00"],
+          "Thursday": ["10:00-12:00", "13:00-15:00"],
+          "Friday": ["10:00-12:00", "13:00-15:00"],
+          "Arranged": []
+        },
+        "visible": true,
+        "dayVisibility": {
+          "Monday": true,
+          "Tuesday": true,
+          "Wednesday": true,
+          "Thursday": true,
+          "Friday": true
+        },
+        "timeslotSectionsExpanded": {
+          "Monday": true,
+          "Tuesday": true,
+          "Wednesday": false,
+          "Thursday": false,
+          "Friday": false
+        },
+        "timeslotFormExpanded": false
+      },
+      {
+        "id": "1768943520365",
+        "roomNumber": "205B",
+        "timeslots": {
+          "Monday": ["10:00-12:00", "13:00-15:00"],
+          "Tuesday": ["10:00-12:00", "13:00-15:00"],
+          "Wednesday": ["10:00-12:00", "13:00-15:00"],
+          "Thursday": ["10:00-12:00", "13:00-15:00"],
+          "Friday": ["10:00-12:00", "13:00-15:00"],
+          "Arranged": []
+        },
+        "visible": true,
+        "dayVisibility": {
+          "Monday": true,
+          "Tuesday": true,
+          "Wednesday": true,
+          "Thursday": true,
+          "Friday": true
+        },
+        "timeslotSectionsExpanded": {
+          "Monday": true,
+          "Tuesday": true,
+          "Wednesday": true,
+          "Thursday": true,
+          "Friday": true
+        },
+        "timeslotFormExpanded": false
+      }
+    ],
+    "schedule": {
+      "1768943518589": {
+        "Monday": {
+          "13:00-15:00": [
+            { "courseId": "1768943509693", "modality": "hybrid" }
+          ],
+          "10:00-12:00": [
+            { "courseId": "1768944520197", "modality": "hybrid" }
+          ]
+        },
+        "Tuesday": {
+          "13:00-15:00": [
+            { "courseId": "1768944577685", "modality": "hybrid" }
+          ],
+          "10:00-12:00": [
+            { "courseId": "1768944591021", "modality": "hybrid" }
+          ]
+        },
+        "Wednesday": {
+          "13:00-15:00": [
+            { "courseId": "1768943509693", "modality": "hybrid" }
+          ],
+          "10:00-12:00": [
+            { "courseId": "1768944520197", "modality": "hybrid" }
+          ]
+        },
+        "Thursday": {
+          "13:00-15:00": [
+            { "courseId": "1768944577685", "modality": "hybrid" }
+          ],
+          "10:00-12:00": [
+            { "courseId": "1768944591021", "modality": "hybrid" }
+          ]
+        },
+        "Friday": {},
+        "Arranged": {
+          "arranged": [
+            { "courseId": "1768944600317", "modality": "hybrid" }
+          ]
+        }
+      },
+      "1768943520365": {
+        "Monday": {
+          "10:00-12:00": [
+            { "courseId": "1768944538509", "modality": "hybrid" }
+          ],
+          "13:00-15:00": [
+            { "courseId": "1768944552853", "modality": "hybrid" }
+          ]
+        },
+        "Tuesday": {
+          "10:00-12:00": [
+            { "courseId": "1768944530333", "modality": "hybrid" }
+          ],
+          "13:00-15:00": [
+            { "courseId": "1768944564925", "modality": "hybrid" }
+          ]
+        },
+        "Wednesday": {
+          "10:00-12:00": [
+            { "courseId": "1768944538509", "modality": "hybrid" }
+          ],
+          "13:00-15:00": [
+            { "courseId": "1768944552853", "modality": "hybrid" }
+          ]
+        },
+        "Thursday": {
+          "10:00-12:00": [
+            { "courseId": "1768944530333", "modality": "hybrid" }
+          ],
+          "13:00-15:00": [
+            { "courseId": "1768944564925", "modality": "hybrid" }
+          ]
+        },
+        "Friday": {}
+      }
+    }
+  }
+}

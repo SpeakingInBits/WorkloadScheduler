@@ -1,37 +1,63 @@
 // Data structure
 let appData = {
+    programs: [],        // Global: [{ id, name }]
+    courseCatalog: [],   // Global: [{ id, name, credits, programId, courseNumber, quarterTaken, quartersOffered }]
     schedules: {
         'Default Schedule': {
+            quarter: '',          // Fall, Winter, Spring, Summer
             instructors: [],
-            courses: [],
+            courseInstructors: {}, // { courseId: instructorId }
             classrooms: [],
-            schedule: {} // { classroomId: { day: { time: { courseId, modality } } } }
+            schedule: {}
         }
     },
     currentSchedule: 'Default Schedule',
-    collapsedSections: {}, // Track which sections are collapsed
-    instructorFilter: [] // Array of instructor IDs to filter
+    collapsedSections: {},
+    instructorFilter: [],
+    programFilter: ''
 };
 
 // Helper to get current schedule data
 function getCurrentScheduleData() {
     if (!appData.schedules[appData.currentSchedule]) {
         appData.schedules[appData.currentSchedule] = {
+            quarter: '',
             instructors: [],
-            courses: [],
+            courseInstructors: {},
             classrooms: [],
             schedule: {}
         };
     }
     const scheduleData = appData.schedules[appData.currentSchedule];
-    
-    // Ensure all required properties exist
+
     if (!scheduleData.instructors) scheduleData.instructors = [];
-    if (!scheduleData.courses) scheduleData.courses = [];
+    if (!scheduleData.courseInstructors) scheduleData.courseInstructors = {};
     if (!scheduleData.classrooms) scheduleData.classrooms = [];
     if (!scheduleData.schedule) scheduleData.schedule = {};
-    
+    if (scheduleData.quarter === undefined) scheduleData.quarter = '';
+
     return scheduleData;
+}
+
+// Helper to get a course from catalog with instructor from current schedule
+function getCourseWithInstructor(courseId) {
+    const course = appData.courseCatalog.find(c => c.id === courseId);
+    if (!course) return null;
+    const scheduleData = getCurrentScheduleData();
+    return {
+        ...course,
+        instructorId: scheduleData.courseInstructors[courseId] || null
+    };
+}
+
+// Helper to get display name for a course
+function getCourseDisplayName(course) {
+    if (!course) return 'Unknown';
+    const program = appData.programs.find(p => p.id === course.programId);
+    const prefix = program ? `${program.name} ${course.courseNumber || ''}`.trim() : (course.courseNumber ? course.courseNumber : '');
+    if (prefix && course.name) return `${prefix} - ${course.name}`;
+    if (prefix) return prefix;
+    return course.name || 'Unnamed Course';
 }
 
 // Helper properties for backward compatibility
@@ -39,10 +65,6 @@ Object.defineProperties(appData, {
     instructors: {
         get() { return getCurrentScheduleData().instructors; },
         set(value) { getCurrentScheduleData().instructors = value; }
-    },
-    courses: {
-        get() { return getCurrentScheduleData().courses; },
-        set(value) { getCurrentScheduleData().courses = value; }
     },
     classrooms: {
         get() { return getCurrentScheduleData().classrooms; },
@@ -60,6 +82,9 @@ let pendingDrop = null;
 // Days of the week
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Arranged'];
 
+// Quarter options
+const QUARTERS = ['Fall', 'Winter', 'Spring', 'Summer'];
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     loadFromLocalStorage();
@@ -72,52 +97,72 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderScheduleSelector() {
     const select = document.getElementById('scheduleSelect');
     if (!select) return;
-    
+
     const scheduleNames = Object.keys(appData.schedules);
-    select.innerHTML = scheduleNames.map(name => 
+    select.innerHTML = scheduleNames.map(name =>
         `<option value="${name}" ${name === appData.currentSchedule ? 'selected' : ''}>${name}</option>`
     ).join('');
+
+    // Update quarter selector
+    const quarterSelect = document.getElementById('scheduleQuarter');
+    if (quarterSelect) {
+        const scheduleData = getCurrentScheduleData();
+        quarterSelect.value = scheduleData.quarter || '';
+    }
 }
 
 function switchSchedule() {
     const select = document.getElementById('scheduleSelect');
     appData.currentSchedule = select.value;
     saveToLocalStorage();
+    renderScheduleSelector();
     render();
 }
 
 function createNewSchedule() {
     const name = prompt('Enter name for new schedule:');
     if (!name || !name.trim()) return;
-    
+
     const scheduleName = name.trim();
     if (appData.schedules[scheduleName]) {
         alert('A schedule with this name already exists.');
         return;
     }
-    
-    // Ask if user wants to copy current schedule
+
+    // Ask for quarter
+    let quarter = '';
+    while (!quarter) {
+        const input = prompt('Select quarter for this schedule (Fall, Winter, Spring, Summer):');
+        if (input === null) return; // cancelled
+        const match = QUARTERS.find(q => q.toLowerCase() === input.trim().toLowerCase());
+        if (match) {
+            quarter = match;
+        } else {
+            alert('Please enter a valid quarter: Fall, Winter, Spring, or Summer');
+        }
+    }
+
     const copyExisting = confirm(`Would you like to copy the current schedule "${appData.currentSchedule}" to the new schedule?\n\nClick OK to copy, or Cancel to start with an empty schedule.`);
-    
+
     if (copyExisting) {
-        // Deep copy the current schedule data
         const currentData = getCurrentScheduleData();
         appData.schedules[scheduleName] = {
+            quarter: quarter,
             instructors: JSON.parse(JSON.stringify(currentData.instructors || [])),
-            courses: JSON.parse(JSON.stringify(currentData.courses || [])),
+            courseInstructors: JSON.parse(JSON.stringify(currentData.courseInstructors || {})),
             classrooms: JSON.parse(JSON.stringify(currentData.classrooms || [])),
             schedule: JSON.parse(JSON.stringify(currentData.schedule || {}))
         };
     } else {
-        // Create empty schedule
         appData.schedules[scheduleName] = {
+            quarter: quarter,
             instructors: [],
-            courses: [],
+            courseInstructors: {},
             classrooms: [],
             schedule: {}
         };
     }
-    
+
     appData.currentSchedule = scheduleName;
     saveToLocalStorage();
     renderScheduleSelector();
@@ -128,13 +173,13 @@ function renameCurrentSchedule() {
     const oldName = appData.currentSchedule;
     const newName = prompt('Enter new name for schedule:', oldName);
     if (!newName || !newName.trim() || newName.trim() === oldName) return;
-    
+
     const scheduleName = newName.trim();
     if (appData.schedules[scheduleName]) {
         alert('A schedule with this name already exists.');
         return;
     }
-    
+
     appData.schedules[scheduleName] = appData.schedules[oldName];
     delete appData.schedules[oldName];
     appData.currentSchedule = scheduleName;
@@ -148,9 +193,9 @@ function deleteCurrentSchedule() {
         alert('Cannot delete the last schedule.');
         return;
     }
-    
+
     if (!confirm(`Delete schedule "${appData.currentSchedule}"?`)) return;
-    
+
     delete appData.schedules[appData.currentSchedule];
     appData.currentSchedule = Object.keys(appData.schedules)[0];
     saveToLocalStorage();
@@ -158,18 +203,27 @@ function deleteCurrentSchedule() {
     render();
 }
 
+function updateScheduleQuarter() {
+    const quarterSelect = document.getElementById('scheduleQuarter');
+    if (quarterSelect) {
+        const scheduleData = getCurrentScheduleData();
+        scheduleData.quarter = quarterSelect.value;
+        saveToLocalStorage();
+        renderValidationSummary();
+    }
+}
+
 // Collapsible Sections
 function toggleSection(sectionName) {
     const section = document.getElementById(`${sectionName}-section`);
     const icon = document.getElementById(`${sectionName}-icon`);
-    
+
     if (!section || !icon) return;
-    
+
     const isCollapsed = section.style.display === 'none';
     section.style.display = isCollapsed ? 'block' : 'none';
     icon.textContent = isCollapsed ? '▼' : '▶';
-    
-    // Save state
+
     if (!appData.collapsedSections) appData.collapsedSections = {};
     appData.collapsedSections[sectionName] = !isCollapsed;
     saveToLocalStorage();
@@ -184,7 +238,7 @@ function toggleInstructorFilter(e) {
 
 function updateInstructorFilter(instructorId, checked) {
     if (!appData.instructorFilter) appData.instructorFilter = [];
-    
+
     if (checked) {
         if (!appData.instructorFilter.includes(instructorId)) {
             appData.instructorFilter.push(instructorId);
@@ -192,23 +246,77 @@ function updateInstructorFilter(instructorId, checked) {
     } else {
         appData.instructorFilter = appData.instructorFilter.filter(id => id !== instructorId);
     }
-    
+
     saveToLocalStorage();
-    renderSchedule(); // Re-render schedule with filter applied
+    renderSchedule();
 }
 
-// Close filter dropdown when clicking outside
+// Close dropdowns when clicking outside
 document.addEventListener('click', (e) => {
     const filterList = document.getElementById('instructorFilterList');
     const filterToggle = document.querySelector('.filter-toggle');
     if (filterList && filterToggle && !filterToggle.contains(e.target) && !filterList.contains(e.target)) {
         filterList.style.display = 'none';
     }
+    // Close quarters offered dropdowns
+    ['quartersOfferedList', 'editQuartersOfferedList'].forEach(id => {
+        const list = document.getElementById(id);
+        if (list && list.style.display !== 'none') {
+            const parent = list.closest('.quarters-offered-dropdown');
+            if (parent && !parent.contains(e.target)) {
+                list.style.display = 'none';
+            }
+        }
+    });
 });
 
+// Quarters Offered dropdown toggle
+function toggleQuartersOffered(event, context) {
+    event.stopPropagation();
+    event.preventDefault();
+    const listId = context === 'edit' ? 'editQuartersOfferedList' : 'quartersOfferedList';
+    const list = document.getElementById(listId);
+    if (list) {
+        list.style.display = list.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function getQuartersOfferedFromCheckboxes(context) {
+    const prefix = context === 'edit' ? 'qo-edit-' : 'qo-add-';
+    const quarters = [];
+    QUARTERS.forEach(q => {
+        const cb = document.getElementById(prefix + q.toLowerCase());
+        if (cb && cb.checked) quarters.push(q);
+    });
+    return quarters;
+}
+
+function setQuartersOfferedCheckboxes(context, quartersOffered) {
+    const prefix = context === 'edit' ? 'qo-edit-' : 'qo-add-';
+    QUARTERS.forEach(q => {
+        const cb = document.getElementById(prefix + q.toLowerCase());
+        if (cb) {
+            cb.checked = (quartersOffered || []).includes(q);
+        }
+    });
+}
+
+// Program filter
+function updateProgramFilter() {
+    const select = document.getElementById('programFilterSelect');
+    appData.programFilter = select ? select.value : '';
+    saveToLocalStorage();
+    renderCourses();
+}
 
 // Event Listeners
 function initializeEventListeners() {
+    // Program form
+    document.getElementById('addProgramForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        addProgram();
+    });
+
     // Instructor form
     document.getElementById('addInstructorForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -233,7 +341,7 @@ function initializeEventListeners() {
         document.getElementById('fileInput').click();
     });
     document.getElementById('fileInput').addEventListener('change', importData);
-    
+
     // Modal close handlers
     document.querySelector('.close-modal').addEventListener('click', closeModal);
     document.querySelector('.close-instructor-modal').addEventListener('click', closeInstructorModal);
@@ -248,7 +356,7 @@ function initializeEventListeners() {
             closeInstructorModal();
         }
     });
-    
+
     // Edit course form
     document.getElementById('editCourseForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -258,17 +366,20 @@ function initializeEventListeners() {
         const day = modal.dataset.day;
         const timeslot = modal.dataset.timeslot;
         const courseIndex = modal.dataset.courseIndex;
+        const programId = document.getElementById('editCourseProgram').value || null;
+        const courseNumber = document.getElementById('editCourseNumber').value.trim() || '';
         const name = document.getElementById('editCourseName').value.trim();
         const credits = document.getElementById('editCourseCredits').value;
         const instructorId = document.getElementById('editCourseInstructor').value;
         const modality = document.getElementById('editModality').value || 'in-person';
         const quarterTaken = document.getElementById('editCourseQuarterTaken')?.value.trim() || null;
-        
-        if (name && credits) {
-            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex, quarterTaken);
+        const quartersOffered = getQuartersOfferedFromCheckboxes('edit');
+
+        if (credits) {
+            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered);
         }
     });
-    
+
     // Edit instructor form
     document.getElementById('editInstructorForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -276,23 +387,63 @@ function initializeEventListeners() {
         const instructorId = modal.dataset.instructorId;
         const name = document.getElementById('editInstructorName').value.trim();
         const color = document.getElementById('editInstructorColor').value;
-        
+
         if (name) {
             saveInstructorChanges(instructorId, name, color);
         }
     });
 }
 
+// Program functions
+function addProgram() {
+    const nameInput = document.getElementById('programName');
+    const name = nameInput.value.trim();
+
+    if (name) {
+        const program = {
+            id: Date.now().toString(),
+            name: name
+        };
+        appData.programs.push(program);
+        nameInput.value = '';
+        saveToLocalStorage();
+        render();
+    }
+}
+
+function deleteProgram(id) {
+    const hasCourses = appData.courseCatalog.some(c => c.programId === id);
+    if (hasCourses) {
+        alert('Cannot delete program with assigned courses. Reassign or delete the courses first.');
+        return;
+    }
+
+    appData.programs = appData.programs.filter(p => p.id !== id);
+    saveToLocalStorage();
+    render();
+}
+
+function showEditProgramPrompt(id) {
+    const program = appData.programs.find(p => p.id === id);
+    if (!program) return;
+    const newName = prompt('Enter new name for program:', program.name);
+    if (newName && newName.trim()) {
+        program.name = newName.trim();
+        saveToLocalStorage();
+        render();
+    }
+}
+
 // Instructor functions
 function addInstructor() {
     const nameInput = document.getElementById('instructorName');
     const name = nameInput.value.trim();
-    
+
     if (name) {
         const instructor = {
             id: Date.now().toString(),
             name: name,
-            color: '#3498db' // Default color
+            color: '#3498db'
         };
         appData.instructors.push(instructor);
         nameInput.value = '';
@@ -302,21 +453,24 @@ function addInstructor() {
 }
 
 function deleteInstructor(id) {
-    // Check if instructor has courses
-    const hasCourses = appData.courses.some(c => c.instructorId === id);
-    if (hasCourses) {
-        alert('Cannot delete instructor with assigned courses');
+    // Check if instructor has courses assigned in current schedule
+    const scheduleData = getCurrentScheduleData();
+    const hasAssignments = Object.values(scheduleData.courseInstructors).some(iId => iId === id);
+    if (hasAssignments) {
+        alert('Cannot delete instructor with assigned courses in the current schedule. Unassign them first.');
         return;
     }
-    
+
     appData.instructors = appData.instructors.filter(i => i.id !== id);
     saveToLocalStorage();
     render();
 }
 
 function getInstructorWorkload(instructorId) {
-    return appData.courses
-        .filter(c => c.instructorId === instructorId && isCourseScheduled(c.id))
+    const scheduleData = getCurrentScheduleData();
+    // Find all courses assigned to this instructor in this schedule that are scheduled
+    return appData.courseCatalog
+        .filter(c => scheduleData.courseInstructors[c.id] === instructorId && isCourseScheduled(c.id))
         .reduce((sum, c) => sum + c.credits, 0);
 }
 
@@ -330,7 +484,6 @@ function isCourseScheduled(courseId) {
                         return true;
                     }
                 } else if (slotData && slotData.courseId === courseId) {
-                    // Backward compatibility
                     return true;
                 }
             }
@@ -347,7 +500,6 @@ function hasInPersonConflict(day, timeslot) {
             if (Array.isArray(slotData)) {
                 inPersonCount += slotData.filter(item => item.modality === 'in-person').length;
             } else if (slotData.modality === 'in-person') {
-                // Backward compatibility
                 inPersonCount++;
             }
             if (inPersonCount >= 2) {
@@ -358,57 +510,75 @@ function hasInPersonConflict(day, timeslot) {
     return false;
 }
 
-// Course functions
+// Course functions (global catalog)
 function addCourse() {
+    const programSelect = document.getElementById('courseProgram');
+    const numberInput = document.getElementById('courseNumber');
     const nameInput = document.getElementById('courseName');
     const creditsInput = document.getElementById('courseCredits');
-    const instructorSelect = document.getElementById('courseInstructor');
     const quarterInput = document.getElementById('courseQuarterTaken');
-    
+
+    const programId = programSelect.value || null;
+    const courseNumber = numberInput.value.trim();
     const name = nameInput.value.trim();
     const credits = parseInt(creditsInput.value);
-    const instructorId = instructorSelect.value;
     const quarterTaken = quarterInput ? quarterInput.value.trim() : '';
-    
-    if (name && credits) {
+    const quartersOffered = getQuartersOfferedFromCheckboxes('add');
+
+    if (credits) {
         const course = {
             id: Date.now().toString(),
-            name: name,
+            name: name || '',
             credits: credits,
-            instructorId: instructorId || null,
-            quarterTaken: quarterTaken || null
+            programId: programId,
+            courseNumber: courseNumber || '',
+            quarterTaken: quarterTaken || null,
+            quartersOffered: quartersOffered
         };
-        appData.courses.push(course);
+        appData.courseCatalog.push(course);
         nameInput.value = '';
         creditsInput.value = '';
-        instructorSelect.value = '';
+        if (numberInput) numberInput.value = '';
+        if (programSelect) programSelect.value = '';
         if (quarterInput) quarterInput.value = '';
+        // Clear quarter checkboxes
+        setQuartersOfferedCheckboxes('add', []);
         saveToLocalStorage();
         render();
     }
 }
 
 function deleteCourse(id) {
-    // Remove from schedule
-    Object.keys(appData.schedule).forEach(classroomId => {
-        DAYS.forEach(day => {
-            if (appData.schedule[classroomId][day]) {
-                Object.keys(appData.schedule[classroomId][day]).forEach(time => {
-                    const slotData = appData.schedule[classroomId][day][time];
-                    if (Array.isArray(slotData)) {
-                        appData.schedule[classroomId][day][time] = slotData.filter(item => item.courseId !== id);
-                        if (appData.schedule[classroomId][day][time].length === 0) {
-                            delete appData.schedule[classroomId][day][time];
-                        }
-                    } else if (slotData && slotData.courseId === id) {
-                        delete appData.schedule[classroomId][day][time];
+    // Remove from schedule in all schedules
+    Object.keys(appData.schedules).forEach(scheduleName => {
+        const scheduleData = appData.schedules[scheduleName];
+        // Remove from schedule grid
+        if (scheduleData.schedule) {
+            Object.keys(scheduleData.schedule).forEach(classroomId => {
+                DAYS.forEach(day => {
+                    if (scheduleData.schedule[classroomId][day]) {
+                        Object.keys(scheduleData.schedule[classroomId][day]).forEach(time => {
+                            const slotData = scheduleData.schedule[classroomId][day][time];
+                            if (Array.isArray(slotData)) {
+                                scheduleData.schedule[classroomId][day][time] = slotData.filter(item => item.courseId !== id);
+                                if (scheduleData.schedule[classroomId][day][time].length === 0) {
+                                    delete scheduleData.schedule[classroomId][day][time];
+                                }
+                            } else if (slotData && slotData.courseId === id) {
+                                delete scheduleData.schedule[classroomId][day][time];
+                            }
+                        });
                     }
                 });
-            }
-        });
+            });
+        }
+        // Remove instructor assignment
+        if (scheduleData.courseInstructors) {
+            delete scheduleData.courseInstructors[id];
+        }
     });
-    
-    appData.courses = appData.courses.filter(c => c.id !== id);
+
+    appData.courseCatalog = appData.courseCatalog.filter(c => c.id !== id);
     saveToLocalStorage();
     render();
 }
@@ -417,27 +587,25 @@ function deleteCourse(id) {
 function addClassroom() {
     const roomInput = document.getElementById('roomNumber');
     const roomNumber = roomInput.value.trim();
-    
+
     if (roomNumber) {
         const classroom = {
             id: Date.now().toString(),
             roomNumber: roomNumber,
-            timeslots: {}, // Per-day timeslots: { Monday: [], Tuesday: [], ... }
+            timeslots: {},
             visible: true,
-            timeslotFormExpanded: true // Single toggle for all timeslot forms
+            timeslotFormExpanded: true
         };
-        // Initialize timeslots for each day
         DAYS.forEach(day => {
             classroom.timeslots[day] = [];
         });
         appData.classrooms.push(classroom);
-        
-        // Initialize schedule for this classroom
+
         appData.schedule[classroom.id] = {};
         DAYS.forEach(day => {
             appData.schedule[classroom.id][day] = {};
         });
-        
+
         roomInput.value = '';
         saveToLocalStorage();
         render();
@@ -491,11 +659,10 @@ function addTimeslot(classroomId, day, startTime, endTime) {
 function removeTimeslot(classroomId, day, timeslot) {
     const classroom = appData.classrooms.find(c => c.id === classroomId);
     if (classroom) {
-        // Remove scheduled courses for this timeslot on this day
         if (appData.schedule[classroomId][day] && appData.schedule[classroomId][day][timeslot]) {
             delete appData.schedule[classroomId][day][timeslot];
         }
-        
+
         if (classroom.timeslots[day]) {
             classroom.timeslots[day] = classroom.timeslots[day].filter(t => t !== timeslot);
         }
@@ -529,8 +696,7 @@ function scheduleCourse(classroomId, day, time, courseId, modality) {
     if (!appData.schedule[classroomId][day][time]) {
         appData.schedule[classroomId][day][time] = [];
     }
-    
-    // Add course to the array
+
     appData.schedule[classroomId][day][time].push({
         courseId: courseId,
         modality: modality || 'in-person'
@@ -542,14 +708,11 @@ function scheduleCourse(classroomId, day, time, courseId, modality) {
 function unscheduleCourse(classroomId, day, time, courseIndex) {
     if (appData.schedule[classroomId] && appData.schedule[classroomId][day] && appData.schedule[classroomId][day][time]) {
         if (courseIndex !== undefined) {
-            // Remove specific course from array
             appData.schedule[classroomId][day][time].splice(courseIndex, 1);
-            // Clean up empty array
             if (appData.schedule[classroomId][day][time].length === 0) {
                 delete appData.schedule[classroomId][day][time];
             }
         } else {
-            // Remove entire slot (backward compatibility)
             delete appData.schedule[classroomId][day][time];
         }
         saveToLocalStorage();
@@ -562,13 +725,12 @@ function handleDragStart(e, courseId) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('courseId', courseId);
     e.target.classList.add('dragging');
-    
-    // If dragging from schedule, store source location
+
     const sourceClassroomId = e.target.dataset.sourceClassroomId;
     const sourceDay = e.target.dataset.sourceDay;
     const sourceTimeslot = e.target.dataset.sourceTimeslot;
     const sourceCourseIndex = e.target.dataset.sourceCourseIndex;
-    
+
     if (sourceClassroomId && sourceDay && sourceTimeslot) {
         e.dataTransfer.setData('sourceClassroomId', sourceClassroomId);
         e.dataTransfer.setData('sourceDay', sourceDay);
@@ -594,18 +756,15 @@ function handleDragLeave(e) {
 function handleDrop(e, classroomId, day, time) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
-    
+
     const courseId = e.dataTransfer.getData('courseId');
     if (courseId) {
-        // Check if moving from another timeslot
         const sourceClassroomId = e.dataTransfer.getData('sourceClassroomId');
         const sourceDay = e.dataTransfer.getData('sourceDay');
         const sourceTimeslot = e.dataTransfer.getData('sourceTimeslot');
         const sourceCourseIndex = e.dataTransfer.getData('sourceCourseIndex');
-        
-        // Get modality from source if moving, otherwise ask user
+
         if (sourceClassroomId && sourceDay && sourceTimeslot) {
-            // Moving from another timeslot
             const sourceSlot = appData.schedule[sourceClassroomId]?.[sourceDay]?.[sourceTimeslot];
             let modality = 'in-person';
             if (Array.isArray(sourceSlot) && sourceCourseIndex !== '') {
@@ -613,13 +772,10 @@ function handleDrop(e, classroomId, day, time) {
             } else if (sourceSlot && !Array.isArray(sourceSlot)) {
                 modality = sourceSlot.modality || 'in-person';
             }
-            
-            // Check if moving to same slot (do nothing)
+
             const isSameSlot = sourceClassroomId === classroomId && sourceDay === day && sourceTimeslot === time;
             if (!isSameSlot) {
-                // Schedule at new location
                 scheduleCourse(classroomId, day, time, courseId, modality);
-                // Remove from original location
                 if (sourceCourseIndex !== '') {
                     unscheduleCourse(sourceClassroomId, sourceDay, sourceTimeslot, parseInt(sourceCourseIndex));
                 } else {
@@ -627,7 +783,6 @@ function handleDrop(e, classroomId, day, time) {
                 }
             }
         } else {
-            // Adding from sidebar - show modality modal
             pendingDrop = { classroomId, day, time, courseId };
             showModalityModal();
         }
@@ -668,20 +823,31 @@ function closeHelpModalOnOutsideClick(event) {
 }
 
 function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
-    const course = appData.courses.find(c => c.id === courseId);
+    const course = appData.courseCatalog.find(c => c.id === courseId);
     if (!course) return;
-    
-    document.getElementById('editCourseName').value = course.name;
+
+    const scheduleData = getCurrentScheduleData();
+
+    // Populate program dropdown
+    const programSelect = document.getElementById('editCourseProgram');
+    programSelect.innerHTML = '<option value="">Select Program</option>' +
+        appData.programs.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    programSelect.value = course.programId || '';
+
+    document.getElementById('editCourseNumber').value = course.courseNumber || '';
+    document.getElementById('editCourseName').value = course.name || '';
     document.getElementById('editCourseCredits').value = course.credits;
-    document.getElementById('editCourseInstructor').value = course.instructorId;
     const quarterInput = document.getElementById('editCourseQuarterTaken');
     if (quarterInput) quarterInput.value = course.quarterTaken || '';
-    
+
+    // Set quarters offered checkboxes
+    setQuartersOfferedCheckboxes('edit', course.quartersOffered || []);
+
     // Show modality field when editing from schedule
     const modalityGroup = document.getElementById('editModality').closest('.form-group');
     if (modalityGroup) modalityGroup.style.display = 'block';
-    
-    // Get current modality for this scheduled slot
+
+    // Get current modality
     const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
     let currentModality = 'in-person';
     if (Array.isArray(slotData) && courseIndex !== undefined) {
@@ -690,13 +856,13 @@ function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
         currentModality = slotData.modality || 'in-person';
     }
     document.getElementById('editModality').value = currentModality;
-    
-    // Update instructor dropdown
+
+    // Update instructor dropdown (per-schedule assignment)
     const instructorSelect = document.getElementById('editCourseInstructor');
     instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
         appData.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-    instructorSelect.value = course.instructorId || '';
-    
+    instructorSelect.value = scheduleData.courseInstructors[courseId] || '';
+
     const modal = document.getElementById('courseModal');
     modal.style.display = 'block';
     modal.dataset.courseId = courseId;
@@ -711,25 +877,36 @@ function closeModal() {
 }
 
 function showCourseModalFromList(courseId) {
-    const course = appData.courses.find(c => c.id === courseId);
+    const course = appData.courseCatalog.find(c => c.id === courseId);
     if (!course) return;
-    
-    document.getElementById('editCourseName').value = course.name;
+
+    const scheduleData = getCurrentScheduleData();
+
+    // Populate program dropdown
+    const programSelect = document.getElementById('editCourseProgram');
+    programSelect.innerHTML = '<option value="">Select Program</option>' +
+        appData.programs.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    programSelect.value = course.programId || '';
+
+    document.getElementById('editCourseNumber').value = course.courseNumber || '';
+    document.getElementById('editCourseName').value = course.name || '';
     document.getElementById('editCourseCredits').value = course.credits;
-    document.getElementById('editCourseInstructor').value = course.instructorId;
     const quarterInput = document.getElementById('editCourseQuarterTaken');
     if (quarterInput) quarterInput.value = course.quarterTaken || '';
-    
+
+    // Set quarters offered checkboxes
+    setQuartersOfferedCheckboxes('edit', course.quartersOffered || []);
+
     // Hide modality field when editing from list
     const modalityGroup = document.getElementById('editModality').closest('.form-group');
     if (modalityGroup) modalityGroup.style.display = 'none';
-    
-    // Update instructor dropdown
+
+    // Update instructor dropdown (per-schedule assignment)
     const instructorSelect = document.getElementById('editCourseInstructor');
     instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
         appData.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-    instructorSelect.value = course.instructorId || '';
-    
+    instructorSelect.value = scheduleData.courseInstructors[courseId] || '';
+
     const modal = document.getElementById('courseModal');
     modal.style.display = 'block';
     modal.dataset.courseId = courseId;
@@ -742,10 +919,10 @@ function showCourseModalFromList(courseId) {
 function showInstructorModal(instructorId) {
     const instructor = appData.instructors.find(i => i.id === instructorId);
     if (!instructor) return;
-    
+
     document.getElementById('editInstructorName').value = instructor.name;
     document.getElementById('editInstructorColor').value = instructor.color || '#3498db';
-    
+
     const modal = document.getElementById('instructorModal');
     modal.style.display = 'block';
     modal.dataset.instructorId = instructorId;
@@ -766,25 +943,35 @@ function saveInstructorChanges(instructorId, name, color) {
     }
 }
 
-function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken) {
-    const course = appData.courses.find(c => c.id === courseId);
+function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered) {
+    const course = appData.courseCatalog.find(c => c.id === courseId);
     if (course) {
-        course.name = name;
+        // Update catalog properties
+        course.name = name || '';
         course.credits = parseInt(credits);
-        course.instructorId = instructorId;
         course.quarterTaken = quarterTaken || null;
-        
-        // Update modality for this specific scheduled slot (only if classroomId exists)
+        course.programId = programId || null;
+        course.courseNumber = courseNumber || '';
+        course.quartersOffered = quartersOffered || [];
+
+        // Update instructor assignment for current schedule
+        const scheduleData = getCurrentScheduleData();
+        if (instructorId) {
+            scheduleData.courseInstructors[courseId] = instructorId;
+        } else {
+            delete scheduleData.courseInstructors[courseId];
+        }
+
+        // Update modality for this specific scheduled slot
         if (classroomId && day && timeslot && modality) {
             const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
             if (Array.isArray(slotData) && courseIndex !== undefined && courseIndex !== '') {
                 slotData[parseInt(courseIndex)].modality = modality;
             } else if (slotData && !Array.isArray(slotData)) {
-                // Backward compatibility
                 slotData.modality = modality;
             }
         }
-        
+
         saveToLocalStorage();
         render();
         closeModal();
@@ -793,6 +980,7 @@ function saveCourseChanges(courseId, name, credits, instructorId, classroomId, d
 
 // Render functions
 function render() {
+    renderPrograms();
     renderInstructors();
     renderCourses();
     renderSchedule();
@@ -801,26 +989,27 @@ function render() {
 }
 
 // Helper function to get scheduled course style based on instructor color and filter
-function getScheduledCourseStyle(course) {
-    const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
+function getScheduledCourseStyle(course, courseId) {
+    const scheduleData = getCurrentScheduleData();
+    const instructorId = scheduleData.courseInstructors[courseId] || (course ? course.instructorId : null);
+    const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
     const instructorColor = instructor ? (instructor.color || '#3498db') : '#95a5a6';
-    
-    // Check if filtering is active and this instructor is not in the filter
+
     const isFiltering = appData.instructorFilter && appData.instructorFilter.length > 0;
-    const isFiltered = isFiltering && course && course.instructorId && !appData.instructorFilter.includes(course.instructorId);
+    const isFiltered = isFiltering && instructorId && !appData.instructorFilter.includes(instructorId);
     const opacity = isFiltered ? '0.2' : '1';
-    
+
     return `background: ${instructorColor}; opacity: ${opacity};`;
 }
 
 function restoreCollapsedSections() {
     if (!appData.collapsedSections) return;
-    
+
     Object.keys(appData.collapsedSections).forEach(sectionName => {
         const isCollapsed = appData.collapsedSections[sectionName];
         const section = document.getElementById(`${sectionName}-section`);
         const icon = document.getElementById(`${sectionName}-icon`);
-        
+
         if (section && icon) {
             section.style.display = isCollapsed ? 'none' : 'block';
             icon.textContent = isCollapsed ? '▶' : '▼';
@@ -833,27 +1022,31 @@ function toggleValidationSummary() {
     const errorsDiv = document.getElementById('validationErrors');
     const icon = document.getElementById('validation-collapse-icon');
     if (!errorsDiv || !icon) return;
-    
+
     const isCollapsed = errorsDiv.classList.toggle('collapsed');
     icon.textContent = isCollapsed ? '▶' : '▼';
 }
 
 function validateSchedule() {
     const errors = [];
-    
-    // Build a map of all scheduled courses: { "day|timeslot": [ { courseId, classroomId, roomNumber } ] }
+    const scheduleData = getCurrentScheduleData();
+    const scheduleQuarter = scheduleData.quarter;
+
+    // Build a map of all scheduled courses
     const timeslotMap = {};
-    
+    const scheduledCourseIds = new Set();
+
     for (const classroomId in appData.schedule) {
         const classroom = appData.classrooms.find(c => c.id === classroomId);
         const roomNumber = classroom ? classroom.roomNumber : 'Unknown';
-        
+
         for (const day in appData.schedule[classroomId]) {
             for (const time in appData.schedule[classroomId][day]) {
                 const slotData = appData.schedule[classroomId][day][time];
                 const courses = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
-                
+
                 courses.forEach(item => {
+                    scheduledCourseIds.add(item.courseId);
                     const key = `${day}|${time}`;
                     if (!timeslotMap[key]) timeslotMap[key] = [];
                     timeslotMap[key].push({
@@ -866,31 +1059,29 @@ function validateSchedule() {
             }
         }
     }
-    
+
     // Check for instructor conflicts
     for (const key in timeslotMap) {
         const entries = timeslotMap[key];
         const [day, time] = key.split('|');
-        
-        // Group by instructor
+
         const instructorGroups = {};
         entries.forEach(entry => {
-            const course = appData.courses.find(c => c.id === entry.courseId);
-            if (course && course.instructorId) {
-                if (!instructorGroups[course.instructorId]) {
-                    instructorGroups[course.instructorId] = [];
+            const course = appData.courseCatalog.find(c => c.id === entry.courseId);
+            const instructorId = scheduleData.courseInstructors[entry.courseId] || null;
+            if (course && instructorId) {
+                if (!instructorGroups[instructorId]) {
+                    instructorGroups[instructorId] = [];
                 }
-                instructorGroups[course.instructorId].push({
+                instructorGroups[instructorId].push({
                     ...entry,
-                    courseName: course.name
+                    courseName: getCourseDisplayName(course)
                 });
             }
         });
-        
-        // Check for conflicts (same instructor, different courses at same time)
+
         for (const instructorId in instructorGroups) {
             const group = instructorGroups[instructorId];
-            // Only flag if there are multiple distinct courses for this instructor
             const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
             if (uniqueCourseIds.length > 1) {
                 const instructor = appData.instructors.find(i => i.id === instructorId);
@@ -902,11 +1093,11 @@ function validateSchedule() {
                 });
             }
         }
-        
-        // Check for cohort/quarter conflicts
+
+        // Cohort/quarter conflicts
         const quarterGroups = {};
         entries.forEach(entry => {
-            const course = appData.courses.find(c => c.id === entry.courseId);
+            const course = appData.courseCatalog.find(c => c.id === entry.courseId);
             if (course && course.quarterTaken) {
                 const qKey = course.quarterTaken.trim().toUpperCase();
                 if (!quarterGroups[qKey]) {
@@ -914,12 +1105,12 @@ function validateSchedule() {
                 }
                 quarterGroups[qKey].push({
                     ...entry,
-                    courseName: course.name,
+                    courseName: getCourseDisplayName(course),
                     quarterTaken: course.quarterTaken
                 });
             }
         });
-        
+
         for (const quarter in quarterGroups) {
             const group = quarterGroups[quarter];
             const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
@@ -932,7 +1123,42 @@ function validateSchedule() {
             }
         }
     }
-    
+
+    // Check for courses without a program (only scheduled courses)
+    scheduledCourseIds.forEach(courseId => {
+        const course = appData.courseCatalog.find(c => c.id === courseId);
+        if (course && !course.programId) {
+            errors.push({
+                type: 'program',
+                message: `<strong>${getCourseDisplayName(course)}</strong> is not assigned to a program`
+            });
+        }
+    });
+
+    // Check for quarter availability (only if schedule has a quarter set)
+    if (scheduleQuarter) {
+        scheduledCourseIds.forEach(courseId => {
+            const course = appData.courseCatalog.find(c => c.id === courseId);
+            if (course && course.quartersOffered && course.quartersOffered.length > 0) {
+                if (!course.quartersOffered.includes(scheduleQuarter)) {
+                    errors.push({
+                        type: 'quarter',
+                        message: `<strong>${getCourseDisplayName(course)}</strong> is not offered in <strong>${scheduleQuarter}</strong> quarter (offered: ${course.quartersOffered.join(', ')})`
+                    });
+                }
+            }
+            // If quartersOffered is empty or not set, course is "on demand" - no error
+        });
+    }
+
+    // Check if schedule has no quarter set
+    if (!scheduleQuarter) {
+        errors.push({
+            type: 'quarter',
+            message: `<strong>Schedule "${appData.currentSchedule}"</strong> does not have a quarter assigned. Please select a quarter.`
+        });
+    }
+
     return errors;
 }
 
@@ -941,20 +1167,26 @@ function renderValidationSummary() {
     const summaryDiv = document.getElementById('validationSummary');
     const errorsDiv = document.getElementById('validationErrors');
     const countSpan = document.getElementById('validationCount');
-    
+
     if (!summaryDiv || !errorsDiv || !countSpan) return;
-    
+
     if (errors.length === 0) {
         summaryDiv.style.display = 'none';
         return;
     }
-    
+
     summaryDiv.style.display = 'block';
     countSpan.textContent = errors.length;
-    
+
     errorsDiv.innerHTML = errors.map(err => {
-        const typeClass = err.type === 'instructor' ? 'instructor-conflict' : 'cohort-conflict';
-        const icon = err.type === 'instructor' ? '👨‍🏫' : '🎓';
+        let typeClass, icon;
+        switch (err.type) {
+            case 'instructor': typeClass = 'instructor-conflict'; icon = '👨‍🏫'; break;
+            case 'cohort': typeClass = 'cohort-conflict'; icon = '🎓'; break;
+            case 'program': typeClass = 'program-conflict'; icon = '📂'; break;
+            case 'quarter': typeClass = 'quarter-conflict'; icon = '📅'; break;
+            default: typeClass = ''; icon = '⚠️';
+        }
         return `
             <div class="validation-error-item ${typeClass}">
                 <span class="validation-error-icon">${icon}</span>
@@ -964,17 +1196,39 @@ function renderValidationSummary() {
     }).join('');
 }
 
+function renderPrograms() {
+    const container = document.getElementById('programsList');
+    if (!container) return;
+
+    if (appData.programs.length === 0) {
+        container.innerHTML = '<p style="color: #7f8c8d; font-size: 14px;">No programs added yet</p>';
+        return;
+    }
+
+    container.innerHTML = appData.programs.map(program => {
+        const courseCount = appData.courseCatalog.filter(c => c.programId === program.id).length;
+        return `
+            <div class="program-item" ondblclick="showEditProgramPrompt('${program.id}')" style="cursor: pointer;">
+                <div>
+                    <div class="program-name">${program.name}</div>
+                    <div class="program-meta">${courseCount} course${courseCount !== 1 ? 's' : ''}</div>
+                </div>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteProgram('${program.id}')">Delete</button>
+            </div>
+        `;
+    }).join('');
+}
+
 function renderInstructors() {
     const container = document.getElementById('instructorsList');
-    
+
     if (appData.instructors.length === 0) {
         container.innerHTML = '<p style="color: #7f8c8d; font-size: 14px;">No instructors added yet</p>';
-        // Also clear the filter list
         const filterList = document.getElementById('instructorFilterList');
         if (filterList) filterList.innerHTML = '<p style="padding: 10px; color: #7f8c8d;">No instructors</p>';
         return;
     }
-    
+
     container.innerHTML = appData.instructors.map(instructor => {
         const workload = getInstructorWorkload(instructor.id);
         const color = instructor.color || '#3498db';
@@ -988,7 +1242,7 @@ function renderInstructors() {
             </div>
         `;
     }).join('');
-    
+
     // Render filter list
     const filterList = document.getElementById('instructorFilterList');
     if (filterList) {
@@ -998,7 +1252,7 @@ function renderInstructors() {
             const color = instructor.color || '#3498db';
             return `
                 <label class="filter-checkbox">
-                    <input type="checkbox" ${checked ? 'checked' : ''} 
+                    <input type="checkbox" ${checked ? 'checked' : ''}
                            onchange="updateInstructorFilter('${instructor.id}', this.checked)">
                     <span class="color-indicator" style="background: ${color};"></span>
                     <span>${instructor.name}</span>
@@ -1010,30 +1264,54 @@ function renderInstructors() {
 
 function renderCourses() {
     const container = document.getElementById('coursesList');
-    const instructorSelect = document.getElementById('courseInstructor');
-    
-    // Update instructor dropdown
-    instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
-        appData.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-    
-    if (appData.courses.length === 0) {
-        container.innerHTML = '<p style="color: #7f8c8d; font-size: 14px;">No courses added yet</p>';
+    const programSelect = document.getElementById('courseProgram');
+
+    // Update program dropdown in add form
+    if (programSelect) {
+        programSelect.innerHTML = '<option value="">Select Program</option>' +
+            appData.programs.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    }
+
+    // Update program filter dropdown
+    const programFilterSelect = document.getElementById('programFilterSelect');
+    if (programFilterSelect) {
+        const currentFilter = appData.programFilter || '';
+        programFilterSelect.innerHTML = '<option value="">All Programs</option>' +
+            appData.programs.map(p => `<option value="${p.id}" ${p.id === currentFilter ? 'selected' : ''}>${p.name}</option>`).join('');
+    }
+
+    // Filter courses by program
+    let displayCourses = appData.courseCatalog;
+    if (appData.programFilter) {
+        displayCourses = displayCourses.filter(c => c.programId === appData.programFilter);
+    }
+
+    if (displayCourses.length === 0) {
+        container.innerHTML = appData.courseCatalog.length === 0
+            ? '<p style="color: #7f8c8d; font-size: 14px;">No courses added yet</p>'
+            : '<p style="color: #7f8c8d; font-size: 14px;">No courses match the selected filter</p>';
         return;
     }
-    
-    container.innerHTML = appData.courses.map(course => {
-        const instructor = appData.instructors.find(i => i.id === course.instructorId);
+
+    const scheduleData = getCurrentScheduleData();
+
+    container.innerHTML = displayCourses.map(course => {
+        const instructorId = scheduleData.courseInstructors[course.id] || null;
+        const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
         const isScheduled = isCourseScheduled(course.id);
         const statusClass = isScheduled ? 'course-scheduled' : 'course-unscheduled';
         const quarterLabel = course.quarterTaken ? ` • ${course.quarterTaken}` : '';
+        const displayName = getCourseDisplayName(course);
+        const hasNoProgram = !course.programId;
+        const quartersStr = (course.quartersOffered && course.quartersOffered.length > 0) ? ` • ${course.quartersOffered.join(', ')}` : '';
         return `
-            <div class="course-item ${statusClass}" draggable="true" 
+            <div class="course-item ${statusClass} ${hasNoProgram ? 'course-no-program' : ''}" draggable="true"
                  ondragstart="handleDragStart(event, '${course.id}')"
                  ondragend="handleDragEnd(event)"
                  ondblclick="showCourseModalFromList('${course.id}')">
                 <div class="course-info">
-                    <div class="course-name">${course.name}</div>
-                    <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}${quarterLabel}</div>
+                    <div class="course-name">${displayName}${hasNoProgram ? ' <span class="no-program-badge" title="No program assigned">⚠️</span>' : ''}</div>
+                    <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}${quarterLabel}${quartersStr}</div>
                 </div>
                 <button class="delete-btn" onclick="event.stopPropagation(); deleteCourse('${course.id}')">Delete</button>
             </div>
@@ -1043,57 +1321,54 @@ function renderCourses() {
 
 function renderSchedule() {
     const container = document.getElementById('scheduleGrid');
-    
+
     if (appData.classrooms.length === 0) {
         container.innerHTML = '<div class="empty-state"><p>No classrooms added yet</p></div>';
         return;
     }
-    
+
+    const scheduleData = getCurrentScheduleData();
+
     container.innerHTML = appData.classrooms.map(classroom => {
-        // Group timeslots by day for rendering
         const dayTimeslots = {};
         DAYS.forEach(day => {
             dayTimeslots[day] = classroom.timeslots[day] || [];
         });
-        
-        // Get all unique timeslots across all weekdays (excluding Arranged)
+
         const allTimeslots = new Set();
         DAYS.filter(day => day !== 'Arranged').forEach(day => {
             (classroom.timeslots[day] || []).forEach(ts => allTimeslots.add(ts));
         });
         const sortedTimeslots = Array.from(allTimeslots).sort();
-        
+
         const scheduleHTML = sortedTimeslots.length > 0 ? `
             <div class="classroom-schedule ${!classroom.visible ? 'hidden' : ''}">
                 <div class="day-header"></div>
                 ${DAYS.map(day => `<div class="day-header">${day}</div>`).join('')}
-                
+
                 ${sortedTimeslots.map((timeslot, rowIndex) => `
                     <div class="time-label">${timeslot}</div>
                     ${DAYS.map(day => {
-                        // Special handling for Arranged column - only show on first row and span all rows
                         if (day === 'Arranged') {
                             if (rowIndex === 0) {
                                 const slotData = appData.schedule[classroom.id]?.[day]?.['arranged'];
                                 const courses = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
-                                
-                                const modalityIcon = {
-                                    'in-person': '🏫',
-                                    'online': '💻',
-                                    'hybrid': '🔄'
-                                };
-                                
+
+                                const modalityIcon = { 'in-person': '🏫', 'online': '💻', 'hybrid': '🔄' };
+
                                 return `
-                                    <div class="time-slot arranged-slot ${courses.length > 0 ? 'occupied' : ''}" style="grid-row: span ${sortedTimeslots.length};" 
+                                    <div class="time-slot arranged-slot ${courses.length > 0 ? 'occupied' : ''}" style="grid-row: span ${sortedTimeslots.length};"
                                          ondragover="handleDragOver(event)"
                                          ondragleave="handleDragLeave(event)"
                                          ondrop="handleDrop(event, '${classroom.id}', '${day}', 'arranged')">
                                         ${courses.map((item, index) => {
-                                            const course = appData.courses.find(c => c.id === item.courseId);
-                                            const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
-                                            const courseStyle = getScheduledCourseStyle(course);
+                                            const course = appData.courseCatalog.find(c => c.id === item.courseId);
+                                            const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                            const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
+                                            const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                            const displayName = getCourseDisplayName(course);
                                             return `
-                                                <div class="scheduled-course" 
+                                                <div class="scheduled-course"
                                                      style="${courseStyle}"
                                                      draggable="true"
                                                      data-source-classroom-id="${classroom.id}"
@@ -1104,7 +1379,7 @@ function renderSchedule() {
                                                      ondragend="handleDragEnd(event)"
                                                      ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                                     <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
-                                                    <div class="course-name">${course ? course.name : 'Unknown'}</div>
+                                                    <div class="course-name">${displayName}</div>
                                                     <div class="course-meta">
                                                         ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                         <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1115,27 +1390,22 @@ function renderSchedule() {
                                     </div>
                                 `;
                             } else {
-                                return ''; // Skip for other rows since it spans
+                                return '';
                             }
                         }
-                        
+
                         const hasTimeslot = (classroom.timeslots[day] || []).includes(timeslot);
                         if (!hasTimeslot) {
                             return `<div class="time-slot" style="background: #f0f0f0;"></div>`;
                         }
-                        
+
                         const slotData = appData.schedule[classroom.id]?.[day]?.[timeslot];
                         const courses = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
-                        
-                        // Check for in-person conflicts
+
                         const hasConflict = hasInPersonConflict(day, timeslot);
-                        
-                        const modalityIcon = {
-                            'in-person': '🏫',
-                            'online': '💻',
-                            'hybrid': '🔄'
-                        };
-                        
+
+                        const modalityIcon = { 'in-person': '🏫', 'online': '💻', 'hybrid': '🔄' };
+
                         if (courses.length > 0) {
                             return `
                                 <div class="time-slot occupied ${hasConflict ? 'conflict' : ''}"
@@ -1143,11 +1413,13 @@ function renderSchedule() {
                                      ondragleave="handleDragLeave(event)"
                                      ondrop="handleDrop(event, '${classroom.id}', '${day}', '${timeslot}')">
                                     ${courses.map((item, index) => {
-                                        const course = appData.courses.find(c => c.id === item.courseId);
-                                        const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
-                                        const courseStyle = getScheduledCourseStyle(course);
+                                        const course = appData.courseCatalog.find(c => c.id === item.courseId);
+                                        const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                        const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
+                                        const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                        const displayName = getCourseDisplayName(course);
                                         return `
-                                            <div class="scheduled-course" 
+                                            <div class="scheduled-course"
                                                  style="${courseStyle}"
                                                  draggable="true"
                                                  data-source-classroom-id="${classroom.id}"
@@ -1158,7 +1430,7 @@ function renderSchedule() {
                                                  ondragend="handleDragEnd(event)"
                                                  ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', '${timeslot}', ${index})">
                                                 <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', '${timeslot}', ${index})">&times;</button>
-                                                <div class="course-name">${course ? course.name : 'Unknown'}${hasConflict ? ' ⚠️' : ''}</div>
+                                                <div class="course-name">${displayName}${hasConflict ? ' ⚠️' : ''}</div>
                                                 <div class="course-meta">
                                                     ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                     <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1170,7 +1442,7 @@ function renderSchedule() {
                             `;
                         } else {
                             return `
-                                <div class="time-slot" 
+                                <div class="time-slot"
                                      ondragover="handleDragOver(event)"
                                      ondragleave="handleDragLeave(event)"
                                      ondrop="handleDrop(event, '${classroom.id}', '${day}', '${timeslot}')">
@@ -1217,26 +1489,33 @@ function renderSchedule() {
                     if (day === 'Arranged') {
                         const slotData = appData.schedule[classroom.id]?.[day]?.['arranged'];
                         const courses = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
-                        
-                        const modalityIcon = {
-                            'in-person': '🏫',
-                            'online': '💻',
-                            'hybrid': '🔄'
-                        };
-                        
+
+                        const modalityIcon = { 'in-person': '🏫', 'online': '💻', 'hybrid': '🔄' };
+
                         return `
                             <div class="time-slot arranged-slot ${courses.length > 0 ? 'occupied' : ''}"
                                  ondragover="handleDragOver(event)"
                                  ondragleave="handleDragLeave(event)"
                                  ondrop="handleDrop(event, '${classroom.id}', '${day}', 'arranged')">
                                 ${courses.map((item, index) => {
-                                    const course = appData.courses.find(c => c.id === item.courseId);
-                                    const instructor = course ? appData.instructors.find(i => i.id === course.instructorId) : null;
-                                    const courseStyle = getScheduledCourseStyle(course);
+                                    const course = appData.courseCatalog.find(c => c.id === item.courseId);
+                                    const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                    const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
+                                    const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                    const displayName = getCourseDisplayName(course);
                                     return `
-                                        <div class="scheduled-course" style="${courseStyle}" ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
+                                        <div class="scheduled-course"
+                                             style="${courseStyle}"
+                                             draggable="true"
+                                             data-source-classroom-id="${classroom.id}"
+                                             data-source-day="${day}"
+                                             data-source-timeslot="arranged"
+                                             data-source-course-index="${index}"
+                                             ondragstart="handleDragStart(event, '${item.courseId}')"
+                                             ondragend="handleDragEnd(event)"
+                                             ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                             <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
-                                            <div class="course-name">${course ? course.name : 'Unknown'}</div>
+                                            <div class="course-name">${displayName}</div>
                                             <div class="course-meta">
                                                 ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                 <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1270,7 +1549,7 @@ function renderSchedule() {
                 `).join('')}
             </div>
         `;
-        
+
         return `
             <div class="classroom-container">
                 <div class="classroom-header">
@@ -1291,10 +1570,10 @@ function renderSchedule() {
 function addTimeslotFromForm(classroomId, day) {
     const startTimeInput = document.getElementById(`startTime-${classroomId}-${day}`);
     const endTimeInput = document.getElementById(`endTime-${classroomId}-${day}`);
-    
+
     const startTime = startTimeInput.value;
     const endTime = endTimeInput.value;
-    
+
     if (startTime && endTime) {
         if (startTime >= endTime) {
             alert('End time must be after start time');
@@ -1316,87 +1595,160 @@ function loadFromLocalStorage() {
     if (saved) {
         try {
             const loaded = JSON.parse(saved);
-            
-            // Check if this is the new multi-schedule format
-            if (loaded.schedules && typeof loaded.schedules === 'object' && loaded.currentSchedule) {
-                // Don't replace appData object, just update its properties to preserve getters
+
+            // Check for new format with programs and courseCatalog
+            if (loaded.programs !== undefined && loaded.courseCatalog !== undefined) {
+                appData.programs = loaded.programs || [];
+                appData.courseCatalog = loaded.courseCatalog || [];
+                appData.schedules = loaded.schedules || {};
+                appData.currentSchedule = loaded.currentSchedule || 'Default Schedule';
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
+                appData.programFilter = loaded.programFilter || '';
+            }
+            // Migrate from old multi-schedule format (has schedules but no programs/courseCatalog)
+            else if (loaded.schedules && typeof loaded.schedules === 'object' && loaded.currentSchedule) {
+                appData.programs = [];
+                appData.courseCatalog = [];
                 appData.schedules = loaded.schedules;
                 appData.currentSchedule = loaded.currentSchedule;
                 appData.collapsedSections = loaded.collapsedSections || {};
                 appData.instructorFilter = loaded.instructorFilter || [];
-                
-                // Validate that currentSchedule exists in schedules
-                if (!appData.schedules[appData.currentSchedule]) {
-                    // Current schedule doesn't exist, pick the first available one
-                    const firstSchedule = Object.keys(appData.schedules)[0];
-                    if (firstSchedule) {
-                        appData.currentSchedule = firstSchedule;
-                    } else {
-                        // No schedules exist, create default
-                        appData.schedules['Default Schedule'] = {
-                            instructors: [],
-                            courses: [],
-                            classrooms: [],
-                            schedule: {}
-                        };
-                        appData.currentSchedule = 'Default Schedule';
+                appData.programFilter = '';
+
+                // Migrate: extract courses from all schedules into courseCatalog
+                const courseMap = {}; // id -> course (without instructorId)
+                Object.keys(appData.schedules).forEach(scheduleName => {
+                    const sd = appData.schedules[scheduleName];
+                    if (sd.courses && Array.isArray(sd.courses)) {
+                        sd.courses.forEach(course => {
+                            if (!courseMap[course.id]) {
+                                const { instructorId, ...catalogCourse } = course;
+                                catalogCourse.programId = null;
+                                catalogCourse.courseNumber = '';
+                                catalogCourse.quartersOffered = [];
+                                courseMap[course.id] = catalogCourse;
+                            }
+                            // Create instructor assignment
+                            if (!sd.courseInstructors) sd.courseInstructors = {};
+                            if (course.instructorId) {
+                                sd.courseInstructors[course.id] = course.instructorId;
+                            }
+                        });
+                        delete sd.courses; // Remove old courses array
                     }
-                }
-            } else if (loaded.instructors || loaded.courses || loaded.classrooms || loaded.schedule) {
-                // Migrate old single-schedule format to multi-schedule format
+                    if (!sd.quarter) sd.quarter = '';
+                    if (!sd.courseInstructors) sd.courseInstructors = {};
+                });
+                appData.courseCatalog = Object.values(courseMap);
+            }
+            // Migrate from old single-schedule format
+            else if (loaded.instructors || loaded.courses || loaded.classrooms || loaded.schedule) {
+                appData.programs = [];
+                appData.courseCatalog = [];
+                appData.collapsedSections = loaded.collapsedSections || {};
+                appData.instructorFilter = loaded.instructorFilter || [];
+                appData.programFilter = '';
+
+                const courses = loaded.courses || [];
+                const courseInstructors = {};
+                courses.forEach(course => {
+                    const { instructorId, ...catalogCourse } = course;
+                    catalogCourse.programId = null;
+                    catalogCourse.courseNumber = '';
+                    catalogCourse.quartersOffered = [];
+                    appData.courseCatalog.push(catalogCourse);
+                    if (instructorId) {
+                        courseInstructors[course.id] = instructorId;
+                    }
+                });
+
                 appData.schedules = {
                     'Default Schedule': {
+                        quarter: '',
                         instructors: loaded.instructors || [],
-                        courses: loaded.courses || [],
+                        courseInstructors: courseInstructors,
                         classrooms: loaded.classrooms || [],
                         schedule: loaded.schedule || {}
                     }
                 };
                 appData.currentSchedule = 'Default Schedule';
-                appData.collapsedSections = loaded.collapsedSections || {};
-                appData.instructorFilter = loaded.instructorFilter || [];
             } else {
-                // Unrecognized format, start fresh
                 console.warn('Unrecognized data format, initializing with default schedule');
-                return; // Let default initialization happen
+                return;
             }
-            
+
             // Initialize missing global properties
+            if (!appData.programs) appData.programs = [];
+            if (!appData.courseCatalog) appData.courseCatalog = [];
             if (!appData.collapsedSections) appData.collapsedSections = {};
             if (!appData.instructorFilter) appData.instructorFilter = [];
             if (!appData.schedules) appData.schedules = {};
             if (!appData.currentSchedule) appData.currentSchedule = 'Default Schedule';
-            
+            if (appData.programFilter === undefined) appData.programFilter = '';
+
             // Ensure currentSchedule exists
             if (!appData.schedules[appData.currentSchedule]) {
-                appData.schedules[appData.currentSchedule] = {
-                    instructors: [],
-                    courses: [],
-                    classrooms: [],
-                    schedule: {}
-                };
+                const firstSchedule = Object.keys(appData.schedules)[0];
+                if (firstSchedule) {
+                    appData.currentSchedule = firstSchedule;
+                } else {
+                    appData.schedules['Default Schedule'] = {
+                        quarter: '',
+                        instructors: [],
+                        courseInstructors: {},
+                        classrooms: [],
+                        schedule: {}
+                    };
+                    appData.currentSchedule = 'Default Schedule';
+                }
             }
-            
+
+            // Ensure courseCatalog entries have new fields
+            appData.courseCatalog.forEach(course => {
+                if (!course.programId) course.programId = null;
+                if (!course.courseNumber) course.courseNumber = '';
+                if (!course.quartersOffered) course.quartersOffered = [];
+            });
+
             // Migrate data for all schedules
             Object.keys(appData.schedules).forEach(scheduleName => {
                 const scheduleData = appData.schedules[scheduleName];
-                
-                // Ensure all required properties exist
+
                 if (!scheduleData.instructors) scheduleData.instructors = [];
-                if (!scheduleData.courses) scheduleData.courses = [];
+                if (!scheduleData.courseInstructors) scheduleData.courseInstructors = {};
                 if (!scheduleData.classrooms) scheduleData.classrooms = [];
                 if (!scheduleData.schedule) scheduleData.schedule = {};
-                
+                if (scheduleData.quarter === undefined) scheduleData.quarter = '';
+
+                // Remove old courses array if still present
+                if (scheduleData.courses) {
+                    if (!scheduleData.courseInstructors) scheduleData.courseInstructors = {};
+                    scheduleData.courses.forEach(course => {
+                        if (course.instructorId) {
+                            scheduleData.courseInstructors[course.id] = course.instructorId;
+                        }
+                        // Add to catalog if not already there
+                        if (!appData.courseCatalog.find(c => c.id === course.id)) {
+                            const { instructorId, ...catalogCourse } = course;
+                            catalogCourse.programId = null;
+                            catalogCourse.courseNumber = '';
+                            catalogCourse.quartersOffered = [];
+                            appData.courseCatalog.push(catalogCourse);
+                        }
+                    });
+                    delete scheduleData.courses;
+                }
+
                 // Ensure instructors have colors
                 (scheduleData.instructors || []).forEach(instructor => {
                     if (!instructor.color) {
                         instructor.color = '#3498db';
                     }
                 });
-                
+
                 // Migrate classroom data
                 (scheduleData.classrooms || []).forEach(classroom => {
-                    // Convert old array-based timeslots to per-day timeslots
                     if (Array.isArray(classroom.timeslots)) {
                         const oldTimeslots = [...classroom.timeslots];
                         classroom.timeslots = {};
@@ -1404,55 +1756,48 @@ function loadFromLocalStorage() {
                             classroom.timeslots[day] = [...oldTimeslots];
                         });
                     }
-                    
-                    // Ensure timeslots is an object
+
                     if (!classroom.timeslots || typeof classroom.timeslots !== 'object') {
                         classroom.timeslots = {};
                     }
-                    
-                    // Ensure all days exist
+
                     DAYS.forEach(day => {
                         if (!classroom.timeslots[day]) {
                             classroom.timeslots[day] = [];
                         }
                     });
-                    
-                    // Initialize timeslotFormExpanded if it doesn't exist
+
                     if (classroom.timeslotFormExpanded === undefined) {
                         classroom.timeslotFormExpanded = true;
                     }
-                    
-                    // Ensure schedule object exists
+
                     if (!scheduleData.schedule[classroom.id]) {
                         scheduleData.schedule[classroom.id] = {};
                         DAYS.forEach(day => {
                             scheduleData.schedule[classroom.id][day] = {};
                         });
                     }
-                    
+
                     // Migrate schedule from old format to new array format
                     DAYS.forEach(day => {
                         if (scheduleData.schedule[classroom.id][day]) {
                             Object.keys(scheduleData.schedule[classroom.id][day]).forEach(time => {
                                 const value = scheduleData.schedule[classroom.id][day][time];
                                 if (typeof value === 'string') {
-                                    // Very old format: just courseId string
                                     scheduleData.schedule[classroom.id][day][time] = [{
                                         courseId: value,
                                         modality: 'in-person'
                                     }];
                                 } else if (value && !Array.isArray(value) && value.courseId) {
-                                    // Old format: single object { courseId, modality }
                                     scheduleData.schedule[classroom.id][day][time] = [value];
                                 }
-                                // New format is already an array, no change needed
                             });
                         }
                     });
                 });
             });
-            
-            saveToLocalStorage(); // Save migrated data
+
+            saveToLocalStorage();
         } catch (e) {
             console.error('Error loading data:', e);
         }
@@ -1461,26 +1806,23 @@ function loadFromLocalStorage() {
 
 // Export/Import functions
 function exportData() {
-    // Prompt for filename - default to current schedule name
     const defaultName = `${appData.currentSchedule.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
     const filename = prompt('Enter filename for export (without .json extension):', defaultName);
-    
-    if (filename === null) {
-        // User cancelled
-        return;
-    }
-    
+
+    if (filename === null) return;
+
     const finalFilename = filename.trim() || defaultName;
-    
-    // Export only the current schedule
-    const exportData = {
-        version: '2.0',
+
+    const exportPayload = {
+        version: '3.0',
         exportDate: new Date().toISOString(),
         scheduleName: appData.currentSchedule,
+        programs: appData.programs,
+        courseCatalog: appData.courseCatalog,
         data: getCurrentScheduleData()
     };
-    
-    const dataStr = JSON.stringify(exportData, null, 2);
+
+    const dataStr = JSON.stringify(exportPayload, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -1493,38 +1835,53 @@ function exportData() {
 function importData(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
         try {
             const imported = JSON.parse(event.target.result);
-            
-            // Check if this is new version 2.0 format (single schedule with name)
-            if (imported.version === '2.0' && imported.scheduleName && imported.data) {
+
+            // Version 3.0: new format with programs + courseCatalog
+            if (imported.version === '3.0' && imported.scheduleName && imported.data) {
                 const scheduleData = imported.data;
-                
-                // Validate structure
-                if (scheduleData.instructors && scheduleData.courses && scheduleData.classrooms && scheduleData.schedule) {
-                    // Prompt for schedule name (default to imported name)
+
+                if (scheduleData.instructors && scheduleData.classrooms && scheduleData.schedule) {
                     const scheduleName = prompt('Enter name for this schedule:', imported.scheduleName);
                     if (!scheduleName || !scheduleName.trim()) {
                         alert('Import cancelled.');
                         return;
                     }
-                    
+
                     const finalName = scheduleName.trim();
-                    
-                    // Check if schedule exists and confirm override
                     if (appData.schedules[finalName]) {
-                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
-                            return;
-                        }
+                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) return;
                     }
-                    
-                    // Add or override the schedule
+
+                    // Merge programs (avoid duplicates by name)
+                    if (imported.programs) {
+                        imported.programs.forEach(prog => {
+                            if (!appData.programs.find(p => p.id === prog.id)) {
+                                // Check by name too
+                                const existing = appData.programs.find(p => p.name === prog.name);
+                                if (!existing) {
+                                    appData.programs.push(prog);
+                                }
+                            }
+                        });
+                    }
+
+                    // Merge course catalog (avoid duplicates by ID)
+                    if (imported.courseCatalog) {
+                        imported.courseCatalog.forEach(course => {
+                            if (!appData.courseCatalog.find(c => c.id === course.id)) {
+                                appData.courseCatalog.push(course);
+                            }
+                        });
+                    }
+
                     appData.schedules[finalName] = scheduleData;
                     appData.currentSchedule = finalName;
-                    
+
                     saveToLocalStorage();
                     renderScheduleSelector();
                     render();
@@ -1533,65 +1890,137 @@ function importData(e) {
                     alert('Invalid data format in file');
                 }
             }
-            // Handle version 1.0 format (full appData)
+            // Version 2.0: old format with courses per schedule
+            else if (imported.version === '2.0' && imported.scheduleName && imported.data) {
+                const data = imported.data;
+
+                if (data.instructors && data.courses && data.classrooms && data.schedule) {
+                    const scheduleName = prompt('Enter name for this schedule:', imported.scheduleName);
+                    if (!scheduleName || !scheduleName.trim()) {
+                        alert('Import cancelled.');
+                        return;
+                    }
+
+                    const finalName = scheduleName.trim();
+                    if (appData.schedules[finalName]) {
+                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) return;
+                    }
+
+                    // Migrate courses to catalog
+                    const courseInstructors = {};
+                    data.courses.forEach(course => {
+                        if (!appData.courseCatalog.find(c => c.id === course.id)) {
+                            const { instructorId, ...catalogCourse } = course;
+                            catalogCourse.programId = null;
+                            catalogCourse.courseNumber = '';
+                            catalogCourse.quartersOffered = [];
+                            appData.courseCatalog.push(catalogCourse);
+                        }
+                        if (course.instructorId) {
+                            courseInstructors[course.id] = course.instructorId;
+                        }
+                    });
+
+                    appData.schedules[finalName] = {
+                        quarter: '',
+                        instructors: data.instructors,
+                        courseInstructors: courseInstructors,
+                        classrooms: data.classrooms,
+                        schedule: data.schedule
+                    };
+                    appData.currentSchedule = finalName;
+
+                    saveToLocalStorage();
+                    renderScheduleSelector();
+                    render();
+                    alert(`Schedule "${finalName}" imported successfully! (migrated from v2.0)`);
+                } else {
+                    alert('Invalid data format in file');
+                }
+            }
+            // Version 1.0
             else if (imported.version === '1.0' && imported.data) {
                 const data = imported.data;
-                
-                // Check if this is the old appData format
+
                 if (data.instructors && data.courses && data.classrooms && data.schedule) {
-                    // Convert to new multi-schedule format
                     const scheduleName = prompt('Enter name for this schedule:', 'Imported Schedule');
                     if (!scheduleName || !scheduleName.trim()) {
                         alert('Import cancelled.');
                         return;
                     }
-                    
+
                     const finalName = scheduleName.trim();
                     if (appData.schedules[finalName]) {
-                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
-                            return;
-                        }
+                        if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) return;
                     }
-                    
+
+                    const courseInstructors = {};
+                    data.courses.forEach(course => {
+                        if (!appData.courseCatalog.find(c => c.id === course.id)) {
+                            const { instructorId, ...catalogCourse } = course;
+                            catalogCourse.programId = null;
+                            catalogCourse.courseNumber = '';
+                            catalogCourse.quartersOffered = [];
+                            appData.courseCatalog.push(catalogCourse);
+                        }
+                        if (course.instructorId) {
+                            courseInstructors[course.id] = course.instructorId;
+                        }
+                    });
+
                     appData.schedules[finalName] = {
+                        quarter: '',
                         instructors: data.instructors,
-                        courses: data.courses,
+                        courseInstructors: courseInstructors,
                         classrooms: data.classrooms,
                         schedule: data.schedule
                     };
                     appData.currentSchedule = finalName;
-                    
+
                     saveToLocalStorage();
                     renderScheduleSelector();
                     render();
-                    alert(`Schedule "${finalName}" imported successfully! (Version 1.0)`);
+                    alert(`Schedule "${finalName}" imported successfully! (migrated from v1.0)`);
                 } else {
                     alert('Invalid data format in versioned file');
                 }
-            } 
-            // Handle legacy format (direct appData without version)
+            }
+            // Legacy format
             else if (imported.instructors && imported.courses && imported.classrooms && imported.schedule) {
                 const scheduleName = prompt('Enter name for this schedule:', 'Imported Schedule');
                 if (!scheduleName || !scheduleName.trim()) {
                     alert('Import cancelled.');
                     return;
                 }
-                
+
                 const finalName = scheduleName.trim();
                 if (appData.schedules[finalName]) {
-                    if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) {
-                        return;
-                    }
+                    if (!confirm(`Schedule "${finalName}" already exists. Override it?`)) return;
                 }
-                
+
+                const courseInstructors = {};
+                imported.courses.forEach(course => {
+                    if (!appData.courseCatalog.find(c => c.id === course.id)) {
+                        const { instructorId, ...catalogCourse } = course;
+                        catalogCourse.programId = null;
+                        catalogCourse.courseNumber = '';
+                        catalogCourse.quartersOffered = [];
+                        appData.courseCatalog.push(catalogCourse);
+                    }
+                    if (course.instructorId) {
+                        courseInstructors[course.id] = course.instructorId;
+                    }
+                });
+
                 appData.schedules[finalName] = {
+                    quarter: '',
                     instructors: imported.instructors,
-                    courses: imported.courses,
+                    courseInstructors: courseInstructors,
                     classrooms: imported.classrooms,
                     schedule: imported.schedule
                 };
                 appData.currentSchedule = finalName;
-                
+
                 saveToLocalStorage();
                 renderScheduleSelector();
                 render();
@@ -1604,5 +2033,5 @@ function importData(e) {
         }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset file input
+    e.target.value = '';
 }

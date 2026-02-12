@@ -12,6 +12,13 @@
             <h1>Instructor Workload Scheduler <span id="helpIcon" class="help-icon" onclick="showHelpModal()" title="Help">?</span></h1>
             <div class="schedule-controls">
                 <select id="scheduleSelect" onchange="switchSchedule()"></select>
+                <select id="scheduleQuarter" onchange="updateScheduleQuarter()">
+                    <option value="">Select Quarter</option>
+                    <option value="Fall">Fall</option>
+                    <option value="Winter">Winter</option>
+                    <option value="Spring">Spring</option>
+                    <option value="Summer">Summer</option>
+                </select>
                 <button id="newScheduleBtn" onclick="createNewSchedule()">New Schedule</button>
                 <button id="renameScheduleBtn" onclick="renameCurrentSchedule()">Rename</button>
                 <button id="deleteScheduleBtn" onclick="deleteCurrentSchedule()">Delete</button>
@@ -24,8 +31,22 @@
         </header>
 
         <div class="main-content">
-            <!-- Left Sidebar: Instructors and Courses -->
+            <!-- Left Sidebar -->
             <aside class="sidebar">
+                <!-- Programs Section -->
+                <section class="panel">
+                    <h2 class="collapsible-header" onclick="toggleSection('programs')">
+                        <span class="collapse-icon" id="programs-icon">▼</span> Programs
+                    </h2>
+                    <div id="programs-section" class="collapsible-section">
+                        <form id="addProgramForm">
+                            <input type="text" id="programName" placeholder="Program name (e.g. CPW)" required>
+                            <button type="submit">Add Program</button>
+                        </form>
+                        <div id="programsList"></div>
+                    </div>
+                </section>
+
                 <!-- Instructors Section -->
                 <section class="panel">
                     <h2 class="collapsible-header" onclick="toggleSection('instructors')">
@@ -47,21 +68,45 @@
                     </div>
                 </section>
 
-                <!-- Courses Section -->
+                <!-- Courses Section (Global Catalog) -->
                 <section class="panel">
                     <h2 class="collapsible-header" onclick="toggleSection('courses')">
-                        <span class="collapse-icon" id="courses-icon">▼</span> Courses
+                        <span class="collapse-icon" id="courses-icon">▼</span> Courses (Catalog)
                     </h2>
                     <div id="courses-section" class="collapsible-section">
                         <form id="addCourseForm">
-                            <input type="text" id="courseName" placeholder="Course name" required>
-                            <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
-                            <input type="text" id="courseQuarterTaken" placeholder="Quarter Taken (e.g. Q1, Q2)">
-                            <select id="courseInstructor">
-                                <option value="">Select Instructor (Optional)</option>
+                            <select id="courseProgram">
+                                <option value="">Select Program</option>
                             </select>
+                            <input type="text" id="courseNumber" placeholder="Course number (e.g. 101)">
+                            <input type="text" id="courseName" placeholder="Course name (optional)">
+                            <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
+                            <input type="text" id="courseQuarterTaken" placeholder="Cohort (e.g. Q1, Q2)">
+                            <div class="quarters-offered-dropdown">
+                                <button type="button" class="filter-toggle" onclick="toggleQuartersOffered(event, 'add')">Quarters Offered ▼</button>
+                                <div id="quartersOfferedList" class="filter-list" style="display: none;">
+                                    <label class="filter-checkbox">
+                                        <input type="checkbox" value="Fall" id="qo-add-fall"> Fall
+                                    </label>
+                                    <label class="filter-checkbox">
+                                        <input type="checkbox" value="Winter" id="qo-add-winter"> Winter
+                                    </label>
+                                    <label class="filter-checkbox">
+                                        <input type="checkbox" value="Spring" id="qo-add-spring"> Spring
+                                    </label>
+                                    <label class="filter-checkbox">
+                                        <input type="checkbox" value="Summer" id="qo-add-summer"> Summer
+                                    </label>
+                                </div>
+                            </div>
                             <button type="submit">Add Course</button>
                         </form>
+                        <div class="program-filter">
+                            <label style="font-size: 14px; font-weight: 600; margin-bottom: 5px; display: block;">Filter by Program:</label>
+                            <select id="programFilterSelect" onchange="updateProgramFilter()">
+                                <option value="">All Programs</option>
+                            </select>
+                        </div>
                         <div id="coursesList"></div>
                     </div>
                 </section>
@@ -105,26 +150,56 @@
             </div>
             <form id="editCourseForm">
                 <div class="form-group">
+                    <label for="editCourseProgram">Program</label>
+                    <select id="editCourseProgram">
+                        <option value="">Select Program</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseNumber">Course Number</label>
+                    <input type="text" id="editCourseNumber" placeholder="e.g. 101">
+                </div>
+                <div class="form-group">
                     <label for="editCourseName">Course Name</label>
-                    <input type="text" id="editCourseName" required>
+                    <input type="text" id="editCourseName" placeholder="Optional description">
                 </div>
                 <div class="form-group">
                     <label for="editCourseCredits">Credits</label>
                     <input type="number" id="editCourseCredits" min="1" required>
                 </div>
                 <div class="form-group">
-                    <label for="editCourseQuarterTaken">Quarter Taken</label>
+                    <label for="editCourseQuarterTaken">Cohort</label>
                     <input type="text" id="editCourseQuarterTaken" placeholder="e.g. Q1, Q2">
                 </div>
                 <div class="form-group">
-                    <label for="editCourseInstructor">Instructor</label>
+                    <label>Quarters Offered</label>
+                    <div class="quarters-offered-dropdown">
+                        <button type="button" class="filter-toggle" onclick="toggleQuartersOffered(event, 'edit')">Select Quarters ▼</button>
+                        <div id="editQuartersOfferedList" class="filter-list" style="display: none;">
+                            <label class="filter-checkbox">
+                                <input type="checkbox" value="Fall" id="qo-edit-fall"> Fall
+                            </label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" value="Winter" id="qo-edit-winter"> Winter
+                            </label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" value="Spring" id="qo-edit-spring"> Spring
+                            </label>
+                            <label class="filter-checkbox">
+                                <input type="checkbox" value="Summer" id="qo-edit-summer"> Summer
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseInstructor">Instructor (this schedule)</label>
                     <select id="editCourseInstructor">
                         <option value="">Select Instructor (Optional)</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="editModality">Modality</label>
-                    <select id="editModality" required>
+                    <select id="editModality">
                         <option value="in-person">🏫 In-Person</option>
                         <option value="online">💻 Online</option>
                         <option value="hybrid">🔄 Hybrid</option>
@@ -190,26 +265,31 @@
         <div class="modal-content" style="max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 30px;">
             <h2>How to Use</h2>
             <ol style="line-height: 1.8; margin: 20px 0;">
+                <li><strong>Add Programs</strong> - Create programs (e.g. CPW) to organize courses</li>
                 <li><strong>Add Instructors</strong> - Enter names in the Instructors panel on the left</li>
-                <li><strong>Add Courses</strong> - Enter course details and optionally assign to an instructor</li>
+                <li><strong>Add Courses</strong> - Add courses to the global catalog with program, number, and credits</li>
+                <li><strong>Assign Instructors</strong> - Double-click a course to assign an instructor for the current schedule</li>
                 <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
                 <li><strong>Add Time Slots</strong> - Set up schedule times for each day of the week</li>
+                <li><strong>Set Quarter</strong> - Choose a quarter (Fall/Winter/Spring/Summer) for each schedule</li>
                 <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then select modality</li>
                 <li><strong>Move Courses</strong> - Drag scheduled courses between timeslots to reorganize</li>
-                <li><strong>Edit Courses/Instructors</strong> - Double-click any course or instructor (in sidebar or schedule) to edit details</li>
+                <li><strong>Edit Courses/Instructors</strong> - Double-click any course or instructor to edit details</li>
                 <li><strong>Export/Import</strong> - Save your data as JSON or load previous schedules</li>
             </ol>
 
             <h2>Tips</h2>
             <ul style="line-height: 1.8; margin: 20px 0;">
+                <li>Courses are stored in a <strong>global catalog</strong> shared across all schedules</li>
+                <li><strong>Instructor assignments</strong> are per-schedule — the same course can have different instructors in different schedules</li>
+                <li>Set <strong>Quarters Offered</strong> on courses to control which quarters they can be scheduled in</li>
+                <li>Courses with no quarters offered are treated as <strong>"on demand"</strong> and available any quarter</li>
                 <li>Use the <strong>"Copy to All"</strong> button on Monday to quickly set up the same timeslots for the entire week</li>
                 <li>Courses can be <strong>scheduled multiple times</strong> (e.g., a course meeting MWF)</li>
                 <li><strong>Double-click</strong> scheduled courses to quickly edit course information and modality</li>
-                <li><strong>Double-click</strong> courses or instructors in the left sidebar to edit their basic information</li>
                 <li><strong>Drag courses</strong> between timeslots to move them (preserves modality)</li>
                 <li>Use the <strong>"Arranged"</strong> column for courses that don't have fixed meeting times</li>
-                <li><strong>Toggle classroom visibility</strong> to focus on specific rooms using the eye icon</li>
-                <li><strong>Export your data regularly</strong> as a backup - it's saved as a JSON file you can import later</li>
+                <li><strong>Filter by Program</strong> in the courses section to focus on specific program courses</li>
                 <li>Courses are color-coded: <span style="background: #d4edda; padding: 2px 6px; border-radius: 3px;">green = scheduled</span>, <span style="background: #f8d7da; padding: 2px 6px; border-radius: 3px;">red = unscheduled</span></li>
                 <li>In-person scheduling conflicts are highlighted with a <span style="background: #ffcccc; padding: 2px 6px; border-radius: 3px;">red background</span></li>
             </ul>
