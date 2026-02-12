@@ -56,6 +56,7 @@
                         <form id="addCourseForm">
                             <input type="text" id="courseName" placeholder="Course name" required>
                             <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
+                            <input type="text" id="courseQuarterTaken" placeholder="Quarter Taken (e.g. Q1, Q2)">
                             <select id="courseInstructor">
                                 <option value="">Select Instructor (Optional)</option>
                             </select>
@@ -82,6 +83,14 @@
             <!-- Main Area: Schedule Grid -->
             <main class="schedule-area">
                 <h2>Schedule</h2>
+                <div id="validationSummary" class="validation-summary" style="display: none;">
+                    <div class="validation-header" onclick="toggleValidationSummary()">
+                        <span class="validation-icon" id="validation-collapse-icon">▼</span>
+                        <span class="validation-title">⚠️ Scheduling Conflicts</span>
+                        <span class="validation-count" id="validationCount"></span>
+                    </div>
+                    <div id="validationErrors" class="validation-errors"></div>
+                </div>
                 <div id="scheduleGrid"></div>
             </main>
         </div>
@@ -102,6 +111,10 @@
                 <div class="form-group">
                     <label for="editCourseCredits">Credits</label>
                     <input type="number" id="editCourseCredits" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseQuarterTaken">Quarter Taken</label>
+                    <input type="text" id="editCourseQuarterTaken" placeholder="e.g. Q1, Q2">
                 </div>
                 <div class="form-group">
                     <label for="editCourseInstructor">Instructor</label>

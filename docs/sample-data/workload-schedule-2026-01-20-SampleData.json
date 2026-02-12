@@ -21,55 +21,64 @@
         "id": "1768943509693",
         "name": "CPW 102",
         "credits": 6,
-        "instructorId": "1768943473213"
+        "instructorId": "1768943473213",
+        "quarterTaken": "Q1"
       },
       {
         "id": "1768944520197",
         "name": "CPW 141 - Java II",
         "credits": 6,
-        "instructorId": "1768943473213"
+        "instructorId": "1768943473213",
+        "quarterTaken": "Q1"
       },
       {
         "id": "1768944530333",
         "name": "CPW 152",
         "credits": 6,
-        "instructorId": "1768943464941"
+        "instructorId": "1768943464941",
+        "quarterTaken": "Q2"
       },
       {
         "id": "1768944538509",
         "name": "CPW 155 - .NET",
         "credits": 6,
-        "instructorId": "1768943464941"
+        "instructorId": "1768943464941",
+        "quarterTaken": "Q2"
       },
       {
         "id": "1768944552853",
         "name": "CPW 230 - Adv .NET Web",
         "credits": 6,
-        "instructorId": "1768943464941"
+        "instructorId": "1768943464941",
+        "quarterTaken": "Q3"
       },
       {
         "id": "1768944564925",
         "name": "CPW 235 - Software Project",
         "credits": 6,
-        "instructorId": "1768943464941"
+        "instructorId": "1768943464941",
+        "quarterTaken": "Q3"
       },
       {
         "id": "1768944577685",
         "name": "CPW 300 - Discrete Structures",
         "credits": 5,
-        "instructorId": "1768943468941"
+        "instructorId": "1768943468941",
+        "quarterTaken": "Q4"
       },
       {
         "id": "1768944591021",
         "name": "CPW 310 - Computer Arch & OS",
         "credits": 5,
-        "instructorId": "1768943468941"
+        "instructorId": "1768943468941",
+        "quarterTaken": "Q4"
       },
       {
         "id": "1768944600317",
         "name": "CPW 330 - Software Design",
         "credits": 5,
-        "instructorId": "1768943468941"
+        "instructorId": "1768943468941",
+        "quarterTaken": "Q5"
       }
     ],
     "classrooms": [
