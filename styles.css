@@ -796,3 +796,104 @@ input:focus, select:focus {
     gap: 10px;
     margin-bottom: 15px;
 }
+
+/* Validation Summary */
+.validation-summary {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+.validation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 15px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 14px;
+    color: #856404;
+    transition: background 0.2s;
+}
+
+.validation-header:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.validation-icon {
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.validation-title {
+    flex: 1;
+}
+
+.validation-count {
+    background: #e74c3c;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.validation-errors {
+    padding: 0 15px 15px;
+}
+
+.validation-errors.collapsed {
+    display: none;
+}
+
+.validation-error-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.validation-error-item.instructor-conflict {
+    background: #f8d7da;
+    border-left: 3px solid #e74c3c;
+    color: #721c24;
+}
+
+.validation-error-item.cohort-conflict {
+    background: #d1ecf1;
+    border-left: 3px solid #17a2b8;
+    color: #0c5460;
+}
+
+.validation-error-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.validation-error-text {
+    flex: 1;
+}
+
+.validation-error-text strong {
+    font-weight: 700;
+}
+
+/* Quarter badge on scheduled courses */
+.quarter-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 4px;
+    background: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.3px;
+}

@@ -262,9 +262,10 @@ function initializeEventListeners() {
         const credits = document.getElementById('editCourseCredits').value;
         const instructorId = document.getElementById('editCourseInstructor').value;
         const modality = document.getElementById('editModality').value || 'in-person';
+        const quarterTaken = document.getElementById('editCourseQuarterTaken')?.value.trim() || null;
         
         if (name && credits) {
-            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex);
+            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex, quarterTaken);
         }
     });
     
@@ -362,22 +363,26 @@ function addCourse() {
     const nameInput = document.getElementById('courseName');
     const creditsInput = document.getElementById('courseCredits');
     const instructorSelect = document.getElementById('courseInstructor');
+    const quarterInput = document.getElementById('courseQuarterTaken');
     
     const name = nameInput.value.trim();
     const credits = parseInt(creditsInput.value);
     const instructorId = instructorSelect.value;
+    const quarterTaken = quarterInput ? quarterInput.value.trim() : '';
     
     if (name && credits) {
         const course = {
             id: Date.now().toString(),
             name: name,
             credits: credits,
-            instructorId: instructorId || null
+            instructorId: instructorId || null,
+            quarterTaken: quarterTaken || null
         };
         appData.courses.push(course);
         nameInput.value = '';
         creditsInput.value = '';
         instructorSelect.value = '';
+        if (quarterInput) quarterInput.value = '';
         saveToLocalStorage();
         render();
     }
@@ -669,6 +674,8 @@ function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
     document.getElementById('editCourseName').value = course.name;
     document.getElementById('editCourseCredits').value = course.credits;
     document.getElementById('editCourseInstructor').value = course.instructorId;
+    const quarterInput = document.getElementById('editCourseQuarterTaken');
+    if (quarterInput) quarterInput.value = course.quarterTaken || '';
     
     // Show modality field when editing from schedule
     const modalityGroup = document.getElementById('editModality').closest('.form-group');
@@ -710,6 +717,8 @@ function showCourseModalFromList(courseId) {
     document.getElementById('editCourseName').value = course.name;
     document.getElementById('editCourseCredits').value = course.credits;
     document.getElementById('editCourseInstructor').value = course.instructorId;
+    const quarterInput = document.getElementById('editCourseQuarterTaken');
+    if (quarterInput) quarterInput.value = course.quarterTaken || '';
     
     // Hide modality field when editing from list
     const modalityGroup = document.getElementById('editModality').closest('.form-group');
@@ -757,12 +766,13 @@ function saveInstructorChanges(instructorId, name, color) {
     }
 }
 
-function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex) {
+function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken) {
     const course = appData.courses.find(c => c.id === courseId);
     if (course) {
         course.name = name;
         course.credits = parseInt(credits);
         course.instructorId = instructorId;
+        course.quarterTaken = quarterTaken || null;
         
         // Update modality for this specific scheduled slot (only if classroomId exists)
         if (classroomId && day && timeslot && modality) {
@@ -786,6 +796,7 @@ function render() {
     renderInstructors();
     renderCourses();
     renderSchedule();
+    renderValidationSummary();
     restoreCollapsedSections();
 }
 
@@ -815,6 +826,142 @@ function restoreCollapsedSections() {
             icon.textContent = isCollapsed ? '▶' : '▼';
         }
     });
+}
+
+// Validation functions
+function toggleValidationSummary() {
+    const errorsDiv = document.getElementById('validationErrors');
+    const icon = document.getElementById('validation-collapse-icon');
+    if (!errorsDiv || !icon) return;
+    
+    const isCollapsed = errorsDiv.classList.toggle('collapsed');
+    icon.textContent = isCollapsed ? '▶' : '▼';
+}
+
+function validateSchedule() {
+    const errors = [];
+    
+    // Build a map of all scheduled courses: { "day|timeslot": [ { courseId, classroomId, roomNumber } ] }
+    const timeslotMap = {};
+    
+    for (const classroomId in appData.schedule) {
+        const classroom = appData.classrooms.find(c => c.id === classroomId);
+        const roomNumber = classroom ? classroom.roomNumber : 'Unknown';
+        
+        for (const day in appData.schedule[classroomId]) {
+            for (const time in appData.schedule[classroomId][day]) {
+                const slotData = appData.schedule[classroomId][day][time];
+                const courses = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
+                
+                courses.forEach(item => {
+                    const key = `${day}|${time}`;
+                    if (!timeslotMap[key]) timeslotMap[key] = [];
+                    timeslotMap[key].push({
+                        courseId: item.courseId,
+                        classroomId: classroomId,
+                        roomNumber: roomNumber,
+                        modality: item.modality
+                    });
+                });
+            }
+        }
+    }
+    
+    // Check for instructor conflicts
+    for (const key in timeslotMap) {
+        const entries = timeslotMap[key];
+        const [day, time] = key.split('|');
+        
+        // Group by instructor
+        const instructorGroups = {};
+        entries.forEach(entry => {
+            const course = appData.courses.find(c => c.id === entry.courseId);
+            if (course && course.instructorId) {
+                if (!instructorGroups[course.instructorId]) {
+                    instructorGroups[course.instructorId] = [];
+                }
+                instructorGroups[course.instructorId].push({
+                    ...entry,
+                    courseName: course.name
+                });
+            }
+        });
+        
+        // Check for conflicts (same instructor, different courses at same time)
+        for (const instructorId in instructorGroups) {
+            const group = instructorGroups[instructorId];
+            // Only flag if there are multiple distinct courses for this instructor
+            const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
+            if (uniqueCourseIds.length > 1) {
+                const instructor = appData.instructors.find(i => i.id === instructorId);
+                const instructorName = instructor ? instructor.name : 'Unknown';
+                const courseNames = group.map(g => `${g.courseName} (Room ${g.roomNumber})`).join(', ');
+                errors.push({
+                    type: 'instructor',
+                    message: `<strong>${instructorName}</strong> is scheduled for multiple classes on <strong>${day} ${time}</strong>: ${courseNames}`
+                });
+            }
+        }
+        
+        // Check for cohort/quarter conflicts
+        const quarterGroups = {};
+        entries.forEach(entry => {
+            const course = appData.courses.find(c => c.id === entry.courseId);
+            if (course && course.quarterTaken) {
+                const qKey = course.quarterTaken.trim().toUpperCase();
+                if (!quarterGroups[qKey]) {
+                    quarterGroups[qKey] = [];
+                }
+                quarterGroups[qKey].push({
+                    ...entry,
+                    courseName: course.name,
+                    quarterTaken: course.quarterTaken
+                });
+            }
+        });
+        
+        for (const quarter in quarterGroups) {
+            const group = quarterGroups[quarter];
+            const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
+            if (uniqueCourseIds.length > 1) {
+                const courseNames = group.map(g => `${g.courseName} (Room ${g.roomNumber})`).join(', ');
+                errors.push({
+                    type: 'cohort',
+                    message: `<strong>Cohort ${group[0].quarterTaken}</strong> has multiple classes on <strong>${day} ${time}</strong>: ${courseNames}`
+                });
+            }
+        }
+    }
+    
+    return errors;
+}
+
+function renderValidationSummary() {
+    const errors = validateSchedule();
+    const summaryDiv = document.getElementById('validationSummary');
+    const errorsDiv = document.getElementById('validationErrors');
+    const countSpan = document.getElementById('validationCount');
+    
+    if (!summaryDiv || !errorsDiv || !countSpan) return;
+    
+    if (errors.length === 0) {
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    
+    summaryDiv.style.display = 'block';
+    countSpan.textContent = errors.length;
+    
+    errorsDiv.innerHTML = errors.map(err => {
+        const typeClass = err.type === 'instructor' ? 'instructor-conflict' : 'cohort-conflict';
+        const icon = err.type === 'instructor' ? '👨‍🏫' : '🎓';
+        return `
+            <div class="validation-error-item ${typeClass}">
+                <span class="validation-error-icon">${icon}</span>
+                <span class="validation-error-text">${err.message}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 function renderInstructors() {
@@ -878,6 +1025,7 @@ function renderCourses() {
         const instructor = appData.instructors.find(i => i.id === course.instructorId);
         const isScheduled = isCourseScheduled(course.id);
         const statusClass = isScheduled ? 'course-scheduled' : 'course-unscheduled';
+        const quarterLabel = course.quarterTaken ? ` • ${course.quarterTaken}` : '';
         return `
             <div class="course-item ${statusClass}" draggable="true" 
                  ondragstart="handleDragStart(event, '${course.id}')"
@@ -885,7 +1033,7 @@ function renderCourses() {
                  ondblclick="showCourseModalFromList('${course.id}')">
                 <div class="course-info">
                     <div class="course-name">${course.name}</div>
-                    <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}</div>
+                    <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}${quarterLabel}</div>
                 </div>
                 <button class="delete-btn" onclick="event.stopPropagation(); deleteCourse('${course.id}')">Delete</button>
             </div>
@@ -958,7 +1106,7 @@ function renderSchedule() {
                                                     <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
                                                     <div class="course-name">${course ? course.name : 'Unknown'}</div>
                                                     <div class="course-meta">
-                                                        ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}
+                                                        ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                         <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
                                                     </div>
                                                 </div>
@@ -1012,7 +1160,7 @@ function renderSchedule() {
                                                 <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', '${timeslot}', ${index})">&times;</button>
                                                 <div class="course-name">${course ? course.name : 'Unknown'}${hasConflict ? ' ⚠️' : ''}</div>
                                                 <div class="course-meta">
-                                                    ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}
+                                                    ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                     <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
                                                 </div>
                                             </div>
@@ -1090,7 +1238,7 @@ function renderSchedule() {
                                             <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
                                             <div class="course-name">${course ? course.name : 'Unknown'}</div>
                                             <div class="course-meta">
-                                                ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}
+                                                ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                 <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
                                             </div>
                                         </div>
