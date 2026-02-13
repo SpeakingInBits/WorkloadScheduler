@@ -9,19 +9,19 @@
 <body>
     <div class="container">
         <header>
-            <h1>Instructor Workload Scheduler <span id="helpIcon" class="help-icon" onclick="showHelpModal()" title="Help">?</span></h1>
+            <h1>Instructor Workload Scheduler <span id="helpIcon" class="help-icon" onclick="Modals.showHelp()" title="Help">?</span></h1>
             <div class="schedule-controls">
-                <select id="scheduleSelect" onchange="switchSchedule()"></select>
-                <select id="scheduleQuarter" onchange="updateScheduleQuarter()">
+                <select id="scheduleSelect" onchange="ScheduleManager.switchTo()"></select>
+                <select id="scheduleQuarter" onchange="ScheduleManager.updateQuarter()">
                     <option value="">Select Quarter</option>
                     <option value="Fall">Fall</option>
                     <option value="Winter">Winter</option>
                     <option value="Spring">Spring</option>
                     <option value="Summer">Summer</option>
                 </select>
-                <button id="newScheduleBtn" onclick="createNewSchedule()">New Schedule</button>
-                <button id="renameScheduleBtn" onclick="renameCurrentSchedule()">Rename</button>
-                <button id="deleteScheduleBtn" onclick="deleteCurrentSchedule()">Delete</button>
+                <button id="newScheduleBtn" onclick="ScheduleManager.create()">New Schedule</button>
+                <button id="renameScheduleBtn" onclick="ScheduleManager.rename()">Rename</button>
+                <button id="deleteScheduleBtn" onclick="ScheduleManager.deleteCurrent()">Delete</button>
             </div>
             <div class="data-controls">
                 <button id="exportBtn">Export Schedule</button>
@@ -35,7 +35,7 @@
             <aside class="sidebar">
                 <!-- Programs Section -->
                 <section class="panel">
-                    <h2 class="collapsible-header" onclick="toggleSection('programs')">
+                    <h2 class="collapsible-header" onclick="UIState.toggleSection('programs')">
                         <span class="collapse-icon" id="programs-icon">▼</span> Programs
                     </h2>
                     <div id="programs-section" class="collapsible-section">
@@ -49,7 +49,7 @@
 
                 <!-- Instructors Section -->
                 <section class="panel">
-                    <h2 class="collapsible-header" onclick="toggleSection('instructors')">
+                    <h2 class="collapsible-header" onclick="UIState.toggleSection('instructors')">
                         <span class="collapse-icon" id="instructors-icon">▼</span> Instructors
                     </h2>
                     <div id="instructors-section" class="collapsible-section">
@@ -60,7 +60,7 @@
                         <div class="instructor-filter">
                             <label style="font-size: 14px; font-weight: 600; margin-bottom: 5px; display: block;">Filter Instructors:</label>
                             <div class="filter-dropdown">
-                                <button type="button" class="filter-toggle" onclick="toggleInstructorFilter(event)">Select Instructors ▼</button>
+                                <button type="button" class="filter-toggle" onclick="UIState.toggleInstructorFilter(event)">Select Instructors ▼</button>
                                 <div id="instructorFilterList" class="filter-list" style="display: none;"></div>
                             </div>
                         </div>
@@ -70,7 +70,7 @@
 
                 <!-- Courses Section (Global Catalog) -->
                 <section class="panel">
-                    <h2 class="collapsible-header" onclick="toggleSection('courses')">
+                    <h2 class="collapsible-header" onclick="UIState.toggleSection('courses')">
                         <span class="collapse-icon" id="courses-icon">▼</span> Courses (Catalog)
                     </h2>
                     <div id="courses-section" class="collapsible-section">
@@ -83,7 +83,7 @@
                             <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
                             <input type="text" id="courseQuarterTaken" placeholder="Cohort (e.g. Q1, Q2)">
                             <div class="quarters-offered-dropdown">
-                                <button type="button" class="filter-toggle" onclick="toggleQuartersOffered(event, 'add')">Quarters Offered ▼</button>
+                                <button type="button" class="filter-toggle" onclick="UIState.toggleQuartersOffered(event, 'add')">Quarters Offered ▼</button>
                                 <div id="quartersOfferedList" class="filter-list" style="display: none;">
                                     <label class="filter-checkbox">
                                         <input type="checkbox" value="Fall" id="qo-add-fall"> Fall
@@ -103,7 +103,7 @@
                         </form>
                         <div class="program-filter">
                             <label style="font-size: 14px; font-weight: 600; margin-bottom: 5px; display: block;">Filter by Program:</label>
-                            <select id="programFilterSelect" onchange="updateProgramFilter()">
+                            <select id="programFilterSelect" onchange="UIState.updateProgramFilter()">
                                 <option value="">All Programs</option>
                             </select>
                         </div>
@@ -113,7 +113,7 @@
 
                 <!-- Classrooms Section -->
                 <section class="panel">
-                    <h2 class="collapsible-header" onclick="toggleSection('classrooms')">
+                    <h2 class="collapsible-header" onclick="UIState.toggleSection('classrooms')">
                         <span class="collapse-icon" id="classrooms-icon">▼</span> Classrooms
                     </h2>
                     <div id="classrooms-section" class="collapsible-section">
@@ -129,7 +129,7 @@
             <main class="schedule-area">
                 <h2>Schedule</h2>
                 <div id="validationSummary" class="validation-summary" style="display: none;">
-                    <div class="validation-header" onclick="toggleValidationSummary()">
+                    <div class="validation-header" onclick="Validation.toggle()">
                         <span class="validation-icon" id="validation-collapse-icon">▼</span>
                         <span class="validation-title">⚠️ Scheduling Conflicts</span>
                         <span class="validation-count" id="validationCount"></span>
@@ -174,7 +174,7 @@
                 <div class="form-group">
                     <label>Quarters Offered</label>
                     <div class="quarters-offered-dropdown">
-                        <button type="button" class="filter-toggle" onclick="toggleQuartersOffered(event, 'edit')">Select Quarters ▼</button>
+                        <button type="button" class="filter-toggle" onclick="UIState.toggleQuartersOffered(event, 'edit')">Select Quarters ▼</button>
                         <div id="editQuartersOfferedList" class="filter-list" style="display: none;">
                             <label class="filter-checkbox">
                                 <input type="checkbox" value="Fall" id="qo-edit-fall"> Fall
@@ -192,10 +192,14 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="editCourseInstructor">Instructor (this schedule)</label>
+                    <label for="editCourseInstructor">Instructor (this section)</label>
                     <select id="editCourseInstructor">
                         <option value="">Select Instructor (Optional)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseSection">Section</label>
+                    <input type="text" id="editCourseSection" placeholder="e.g. A, B, 01">
                 </div>
                 <div class="form-group">
                     <label for="editModality">Modality</label>
@@ -206,7 +210,7 @@
                     </select>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="Modals.closeCourse()">Cancel</button>
                     <button type="submit" class="btn-primary">Save Changes</button>
                 </div>
             </form>
@@ -230,7 +234,7 @@
                     <input type="color" id="editInstructorColor" value="#3498db">
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn-secondary" onclick="closeInstructorModal()">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="Modals.closeInstructor()">Cancel</button>
                     <button type="submit" class="btn-primary">Save Changes</button>
                 </div>
             </form>
@@ -241,18 +245,22 @@
     <div id="modalityModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Select Modality</h2>
+                <h2>Schedule Course</h2>
+            </div>
+            <div class="modality-section-input">
+                <label for="modalitySectionInput">Section (optional)</label>
+                <input type="text" id="modalitySectionInput" placeholder="e.g. A, B, 01">
             </div>
             <div class="modality-options">
-                <button class="modality-btn" onclick="selectModality('in-person')">
+                <button class="modality-btn" onclick="Modals.selectModality('in-person')">
                     <span class="modality-icon">🏫</span>
                     In-Person
                 </button>
-                <button class="modality-btn" onclick="selectModality('online')">
+                <button class="modality-btn" onclick="Modals.selectModality('online')">
                     <span class="modality-icon">💻</span>
                     Online
                 </button>
-                <button class="modality-btn" onclick="selectModality('hybrid')">
+                <button class="modality-btn" onclick="Modals.selectModality('hybrid')">
                     <span class="modality-icon">🔄</span>
                     Hybrid
                 </button>
@@ -261,7 +269,7 @@
     </div>
 
     <!-- Help Modal -->
-    <div id="helpModal" class="modal" onclick="closeHelpModalOnOutsideClick(event)">
+    <div id="helpModal" class="modal" onclick="Modals.closeHelpOnOutsideClick(event)">
         <div class="modal-content" style="max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 30px;">
             <h2>How to Use</h2>
             <ol style="line-height: 1.8; margin: 20px 0;">
@@ -272,8 +280,9 @@
                 <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
                 <li><strong>Add Time Slots</strong> - Set up schedule times for each day of the week</li>
                 <li><strong>Set Quarter</strong> - Choose a quarter (Fall/Winter/Spring/Summer) for each schedule</li>
-                <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then select modality</li>
+                <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then enter an optional section ID and select modality</li>
                 <li><strong>Move Courses</strong> - Drag scheduled courses between timeslots to reorganize</li>
+                <li><strong>Sections</strong> - Assign section identifiers (e.g. A, B) when scheduling to track different sections of the same course</li>
                 <li><strong>Edit Courses/Instructors</strong> - Double-click any course or instructor to edit details</li>
                 <li><strong>Export/Import</strong> - Save your data as JSON or load previous schedules</li>
             </ol>
@@ -281,7 +290,8 @@
             <h2>Tips</h2>
             <ul style="line-height: 1.8; margin: 20px 0;">
                 <li>Courses are stored in a <strong>global catalog</strong> shared across all schedules</li>
-                <li><strong>Instructor assignments</strong> are per-schedule — the same course can have different instructors in different schedules</li>
+                <li><strong>Instructor assignments</strong> are per-schedule and per-section — the same course can have different instructors in different sections and schedules</li>
+                <li><strong>Instructors</strong> are stored globally and shared across all schedules, so you only need to add them once</li>
                 <li>Set <strong>Quarters Offered</strong> on courses to control which quarters they can be scheduled in</li>
                 <li>Courses with no quarters offered are treated as <strong>"on demand"</strong> and available any quarter</li>
                 <li>Use the <strong>"Copy to All"</strong> button on Monday to quickly set up the same timeslots for the entire week</li>
@@ -305,7 +315,7 @@
                 Note: Modality is set per scheduled slot, so the same course can have different modalities at different times.
             </p>
             <div style="text-align: center; margin-top: 30px;">
-                <button onclick="closeHelpModal()" style="padding: 10px 30px; font-size: 16px;">Close</button>
+                <button onclick="Modals.closeHelp()" style="padding: 10px 30px; font-size: 16px;">Close</button>
             </div>
         </div>
     </div>
