@@ -21,11 +21,14 @@ const DataStore = {
 
     /** Create a blank per-schedule data object */
     createEmptySchedule(quarter) {
+        const timeslots = {};
+        Config.DAYS.filter(d => d !== 'Arranged').forEach(day => { timeslots[day] = []; });
         return {
             quarter: quarter || '',
             courseInstructors: {},
             classrooms: [],
-            schedule: {}
+            schedule: {},
+            timeslots
         };
     },
 
@@ -40,6 +43,10 @@ const DataStore = {
         if (!sd.classrooms) sd.classrooms = [];
         if (!sd.schedule) sd.schedule = {};
         if (sd.quarter === undefined) sd.quarter = '';
+        if (!sd.timeslots) {
+            sd.timeslots = {};
+            Config.DAYS.filter(day => day !== 'Arranged').forEach(day => { sd.timeslots[day] = []; });
+        }
         return sd;
     },
 
@@ -239,23 +246,35 @@ const DataStore = {
             delete sd.courses;
         }
 
+        // Ensure schedule-level timeslots exist
+        if (!sd.timeslots) {
+            sd.timeslots = {};
+            Config.DAYS.filter(d => d !== 'Arranged').forEach(day => { sd.timeslots[day] = []; });
+        }
+
         // Classroom data migration
         (sd.classrooms || []).forEach(classroom => {
-            // Array timeslots → per-day timeslots
+            // Legacy: Array timeslots → per-day timeslots (for migration path)
             if (Array.isArray(classroom.timeslots)) {
                 const old = [...classroom.timeslots];
                 classroom.timeslots = {};
                 Config.DAYS.forEach(day => { classroom.timeslots[day] = [...old]; });
             }
-            if (!classroom.timeslots || typeof classroom.timeslots !== 'object') {
-                classroom.timeslots = {};
+
+            // Migrate per-classroom timeslots to schedule-level
+            if (classroom.timeslots && typeof classroom.timeslots === 'object') {
+                Config.DAYS.filter(d => d !== 'Arranged').forEach(day => {
+                    (classroom.timeslots[day] || []).forEach(ts => {
+                        if (!sd.timeslots[day].includes(ts)) {
+                            sd.timeslots[day].push(ts);
+                        }
+                    });
+                });
             }
-            Config.DAYS.forEach(day => {
-                if (!classroom.timeslots[day]) classroom.timeslots[day] = [];
-            });
-            if (classroom.timeslotFormExpanded === undefined) {
-                classroom.timeslotFormExpanded = true;
-            }
+
+            // Clean up per-classroom timeslot data
+            delete classroom.timeslots;
+            delete classroom.timeslotFormExpanded;
 
             // Ensure schedule grid exists for classroom
             if (!sd.schedule[classroom.id]) {
@@ -281,6 +300,11 @@ const DataStore = {
                     });
                 }
             });
+        });
+
+        // Sort schedule-level timeslots
+        Config.DAYS.filter(d => d !== 'Arranged').forEach(day => {
+            if (sd.timeslots[day]) sd.timeslots[day].sort();
         });
     }
 };
@@ -331,6 +355,38 @@ const Helpers = {
         const sd = DataStore.getCurrentSchedule();
         const key = this.getCourseInstructorKey(courseId, section);
         return { ...course, instructorId: sd.courseInstructors[key] || null };
+    },
+
+    /** Parse "HH:MM" → minutes since midnight */
+    parseTime(timeStr) {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    },
+
+    /** Parse "HH:MM-HH:MM" → { start, end } in minutes */
+    parseTimeRange(timeslot) {
+        const [start, end] = timeslot.split('-');
+        return { start: this.parseTime(start), end: this.parseTime(end) };
+    },
+
+    /** Check whether two "HH:MM-HH:MM" ranges overlap (exclusive of touching endpoints) */
+    timesOverlap(ts1, ts2) {
+        const r1 = this.parseTimeRange(ts1);
+        const r2 = this.parseTimeRange(ts2);
+        return r1.start < r2.end && r2.start < r1.end;
+    },
+
+    /** Return pairs of overlapping timeslots from a sorted array */
+    findOverlappingTimeslots(timeslots) {
+        const pairs = [];
+        for (let i = 0; i < timeslots.length; i++) {
+            for (let j = i + 1; j < timeslots.length; j++) {
+                if (this.timesOverlap(timeslots[i], timeslots[j])) {
+                    pairs.push([timeslots[i], timeslots[j]]);
+                }
+            }
+        }
+        return pairs;
     }
 };
 
@@ -391,7 +447,8 @@ const ScheduleManager = {
                 quarter: quarter,
                 courseInstructors: JSON.parse(JSON.stringify(current.courseInstructors || {})),
                 classrooms: JSON.parse(JSON.stringify(current.classrooms || [])),
-                schedule: JSON.parse(JSON.stringify(current.schedule || {}))
+                schedule: JSON.parse(JSON.stringify(current.schedule || {})),
+                timeslots: JSON.parse(JSON.stringify(current.timeslots || {}))
             };
         } else {
             appData.schedules[scheduleName] = DataStore.createEmptySchedule(quarter);
@@ -765,11 +822,8 @@ const ClassroomManager = {
         const classroom = {
             id: Date.now().toString(),
             roomNumber,
-            timeslots: {},
-            visible: true,
-            timeslotFormExpanded: true
+            visible: true
         };
-        Config.DAYS.forEach(day => { classroom.timeslots[day] = []; });
         appData.classrooms.push(classroom);
 
         appData.schedule[classroom.id] = {};
@@ -794,73 +848,111 @@ const ClassroomManager = {
             DataStore.save();
             Renderer.render();
         }
-    },
+    }
+};
 
-    toggleForm(classroomId) {
-        const classroom = appData.classrooms.find(c => c.id === classroomId);
-        if (classroom) {
-            if (classroom.timeslotFormExpanded === undefined) classroom.timeslotFormExpanded = true;
-            classroom.timeslotFormExpanded = !classroom.timeslotFormExpanded;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TIMESLOT MANAGER — Shared time slot management across all classrooms
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TimeslotManager = {
+    add(day, startTime, endTime) {
+        const sd = DataStore.getCurrentSchedule();
+        const timeslot = `${startTime}-${endTime}`;
+        if (!sd.timeslots[day]) sd.timeslots[day] = [];
+        if (!sd.timeslots[day].includes(timeslot)) {
+            sd.timeslots[day].push(timeslot);
+            sd.timeslots[day].sort();
             DataStore.save();
             Renderer.render();
         }
     },
 
-    addTimeslot(classroomId, day, startTime, endTime) {
-        const classroom = appData.classrooms.find(c => c.id === classroomId);
-        if (classroom && startTime && endTime) {
-            const timeslot = `${startTime}-${endTime}`;
-            if (!classroom.timeslots[day]) classroom.timeslots[day] = [];
-            if (!classroom.timeslots[day].includes(timeslot)) {
-                classroom.timeslots[day].push(timeslot);
-                classroom.timeslots[day].sort();
-                DataStore.save();
-                Renderer.render();
+    remove(day, timeslot) {
+        const sd = DataStore.getCurrentSchedule();
+        if (!sd.timeslots[day]) return;
+
+        // Remove scheduled data for this timeslot across all classrooms
+        sd.classrooms.forEach(classroom => {
+            if (sd.schedule[classroom.id]?.[day]?.[timeslot]) {
+                delete sd.schedule[classroom.id][day][timeslot];
             }
-        }
-    },
+        });
 
-    removeTimeslot(classroomId, day, timeslot) {
-        const classroom = appData.classrooms.find(c => c.id === classroomId);
-        if (!classroom) return;
-
-        if (appData.schedule[classroomId][day] && appData.schedule[classroomId][day][timeslot]) {
-            delete appData.schedule[classroomId][day][timeslot];
-        }
-        if (classroom.timeslots[day]) {
-            classroom.timeslots[day] = classroom.timeslots[day].filter(t => t !== timeslot);
-        }
+        sd.timeslots[day] = sd.timeslots[day].filter(t => t !== timeslot);
         DataStore.save();
         Renderer.render();
     },
 
-    copyTimeslotsToAllDays(classroomId, sourceDay) {
-        const classroom = appData.classrooms.find(c => c.id === classroomId);
-        if (classroom && classroom.timeslots[sourceDay]) {
-            const timeslots = [...classroom.timeslots[sourceDay]];
-            Config.DAYS.forEach(day => {
-                if (day !== sourceDay) classroom.timeslots[day] = [...timeslots];
-            });
-            DataStore.save();
+    edit(day, oldTimeslot, newStart, newEnd) {
+        const sd = DataStore.getCurrentSchedule();
+        const newTimeslot = `${newStart}-${newEnd}`;
+        if (oldTimeslot === newTimeslot) return;
+
+        if (newStart >= newEnd) {
+            alert('End time must be after start time');
             Renderer.render();
+            return;
         }
+
+        // Check for duplicates
+        if (sd.timeslots[day].includes(newTimeslot)) {
+            alert('This timeslot already exists');
+            Renderer.render();
+            return;
+        }
+
+        // Update timeslot list
+        const idx = (sd.timeslots[day] || []).indexOf(oldTimeslot);
+        if (idx >= 0) {
+            sd.timeslots[day][idx] = newTimeslot;
+            sd.timeslots[day].sort();
+        }
+
+        // Migrate schedule data for all classrooms
+        sd.classrooms.forEach(classroom => {
+            if (sd.schedule[classroom.id]?.[day]?.[oldTimeslot]) {
+                sd.schedule[classroom.id][day][newTimeslot] = sd.schedule[classroom.id][day][oldTimeslot];
+                delete sd.schedule[classroom.id][day][oldTimeslot];
+            }
+        });
+
+        DataStore.save();
+        Renderer.render();
     },
 
-    addTimeslotFromForm(classroomId, day) {
-        const startTimeInput = document.getElementById(`startTime-${classroomId}-${day}`);
-        const endTimeInput = document.getElementById(`endTime-${classroomId}-${day}`);
-        const startTime = startTimeInput.value;
-        const endTime = endTimeInput.value;
+    copyToAllDays(sourceDay) {
+        const sd = DataStore.getCurrentSchedule();
+        if (!sd.timeslots[sourceDay]) return;
+        const timeslots = [...sd.timeslots[sourceDay]];
+        Config.DAYS.filter(d => d !== 'Arranged').forEach(day => {
+            if (day !== sourceDay) sd.timeslots[day] = [...timeslots];
+        });
+        DataStore.save();
+        Renderer.render();
+    },
+
+    addFromForm(day) {
+        const startInput = document.getElementById(`shared-startTime-${day}`);
+        const endInput = document.getElementById(`shared-endTime-${day}`);
+        const startTime = startInput?.value;
+        const endTime = endInput?.value;
 
         if (startTime && endTime) {
             if (startTime >= endTime) {
                 alert('End time must be after start time');
                 return;
             }
-            this.addTimeslot(classroomId, day, startTime, endTime);
-            startTimeInput.value = '';
-            endTimeInput.value = '';
+            this.add(day, startTime, endTime);
         }
+    },
+
+    togglePanel() {
+        const sd = DataStore.getCurrentSchedule();
+        sd.timeslotManagerExpanded = !(sd.timeslotManagerExpanded !== false);
+        DataStore.save();
+        Renderer.renderTimeslotManager();
     }
 };
 
@@ -1289,53 +1381,97 @@ const Validation = {
     },
 
     _checkInstructorConflicts(timeslotMap, sd, errors) {
+        // Group all entries by day (skip Arranged — those are scheduled later)
+        const dayEntries = {};
         for (const key in timeslotMap) {
-            const entries = timeslotMap[key];
             const [day, time] = key.split('|');
+            if (day === 'Arranged') continue;
+            if (!dayEntries[day]) dayEntries[day] = [];
+            timeslotMap[key].forEach(entry => {
+                dayEntries[day].push({ ...entry, time });
+            });
+        }
 
-            const instructorGroups = {};
+        // For each day, find instructor conflicts across overlapping timeslots
+        for (const day in dayEntries) {
+            const entries = dayEntries[day];
+
+            // Group by instructor
+            const instructorEntries = {};
             entries.forEach(entry => {
                 const course = appData.courseCatalog.find(c => c.id === entry.courseId);
                 const instrKey = Helpers.getCourseInstructorKey(entry.courseId, entry.section);
                 const instructorId = sd.courseInstructors[instrKey] || null;
                 if (course && instructorId) {
-                    if (!instructorGroups[instructorId]) instructorGroups[instructorId] = [];
+                    if (!instructorEntries[instructorId]) instructorEntries[instructorId] = [];
                     const sectionSuffix = entry.section ? ` \u00a7${entry.section}` : '';
-                    instructorGroups[instructorId].push({
+                    instructorEntries[instructorId].push({
                         ...entry,
                         courseName: Helpers.getCourseDisplayName(course) + sectionSuffix
                     });
                 }
             });
 
-            for (const instructorId in instructorGroups) {
-                const group = instructorGroups[instructorId];
-                const uniquePairs = [...new Set(group.map(g => Helpers.getCourseInstructorKey(g.courseId, g.section)))];
-                if (uniquePairs.length > 1) {
-                    const instructor = appData.instructors.find(i => i.id === instructorId);
-                    const instructorName = instructor ? instructor.name : 'Unknown';
-                    const courseNames = group.map(g => `${g.courseName} (Room ${g.roomNumber})`).join(', ');
-                    errors.push({
-                        type: 'instructor',
-                        message: `<strong>${instructorName}</strong> is scheduled for multiple classes on <strong>${day} ${time}</strong>: ${courseNames}`
-                    });
+            // For each instructor, check if any of their entries have overlapping times
+            for (const instructorId in instructorEntries) {
+                const instrSlots = instructorEntries[instructorId];
+                if (instrSlots.length < 2) continue;
+
+                const reportedPairs = new Set();
+                for (let i = 0; i < instrSlots.length; i++) {
+                    for (let j = i + 1; j < instrSlots.length; j++) {
+                        const a = instrSlots[i];
+                        const b = instrSlots[j];
+
+                        // Check if times overlap
+                        if (!Helpers.timesOverlap(a.time, b.time)) continue;
+
+                        // Skip if same course+section
+                        const keyA = Helpers.getCourseInstructorKey(a.courseId, a.section);
+                        const keyB = Helpers.getCourseInstructorKey(b.courseId, b.section);
+                        if (keyA === keyB) continue;
+
+                        // Avoid duplicate error messages
+                        const pairKey = [keyA, keyB].sort().join('|||');
+                        if (reportedPairs.has(pairKey)) continue;
+                        reportedPairs.add(pairKey);
+
+                        const instructor = appData.instructors.find(i => i.id === instructorId);
+                        const instructorName = instructor ? instructor.name : 'Unknown';
+                        const timeDesc = a.time === b.time ? a.time : `${a.time} / ${b.time}`;
+                        errors.push({
+                            type: 'instructor',
+                            message: `<strong>${instructorName}</strong> has overlapping classes on <strong>${day} ${timeDesc}</strong>: ${a.courseName} (Room ${a.roomNumber}) and ${b.courseName} (Room ${b.roomNumber})`
+                        });
+                    }
                 }
             }
         }
     },
 
     _checkCohortConflicts(timeslotMap, errors) {
+        // Group all entries by day (skip Arranged)
+        const dayEntries = {};
         for (const key in timeslotMap) {
-            const entries = timeslotMap[key];
             const [day, time] = key.split('|');
+            if (day === 'Arranged') continue;
+            if (!dayEntries[day]) dayEntries[day] = [];
+            timeslotMap[key].forEach(entry => {
+                dayEntries[day].push({ ...entry, time });
+            });
+        }
 
-            const quarterGroups = {};
+        for (const day in dayEntries) {
+            const entries = dayEntries[day];
+
+            // Group by cohort
+            const cohortEntries = {};
             entries.forEach(entry => {
                 const course = appData.courseCatalog.find(c => c.id === entry.courseId);
                 if (course && course.quarterTaken) {
                     const qKey = course.quarterTaken.trim().toUpperCase();
-                    if (!quarterGroups[qKey]) quarterGroups[qKey] = [];
-                    quarterGroups[qKey].push({
+                    if (!cohortEntries[qKey]) cohortEntries[qKey] = [];
+                    cohortEntries[qKey].push({
                         ...entry,
                         courseName: Helpers.getCourseDisplayName(course),
                         quarterTaken: course.quarterTaken
@@ -1343,15 +1479,29 @@ const Validation = {
                 }
             });
 
-            for (const quarter in quarterGroups) {
-                const group = quarterGroups[quarter];
-                const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
-                if (uniqueCourseIds.length > 1) {
-                    const courseNames = group.map(g => `${g.courseName} (Room ${g.roomNumber})`).join(', ');
-                    errors.push({
-                        type: 'cohort',
-                        message: `<strong>Cohort ${group[0].quarterTaken}</strong> has multiple classes on <strong>${day} ${time}</strong>: ${courseNames}`
-                    });
+            for (const qKey in cohortEntries) {
+                const group = cohortEntries[qKey];
+                if (group.length < 2) continue;
+
+                const reportedPairs = new Set();
+                for (let i = 0; i < group.length; i++) {
+                    for (let j = i + 1; j < group.length; j++) {
+                        const a = group[i];
+                        const b = group[j];
+
+                        if (!Helpers.timesOverlap(a.time, b.time)) continue;
+                        if (a.courseId === b.courseId) continue;
+
+                        const pairKey = [a.courseId, b.courseId].sort().join('|||');
+                        if (reportedPairs.has(pairKey)) continue;
+                        reportedPairs.add(pairKey);
+
+                        const timeDesc = a.time === b.time ? a.time : `${a.time} / ${b.time}`;
+                        errors.push({
+                            type: 'cohort',
+                            message: `<strong>Cohort ${a.quarterTaken}</strong> has overlapping classes on <strong>${day} ${timeDesc}</strong>: ${a.courseName} (Room ${a.roomNumber}) and ${b.courseName} (Room ${b.roomNumber})`
+                        });
+                    }
                 }
             }
         }
@@ -1539,6 +1689,7 @@ const Renderer = {
 
     // ── Schedule Grid ──
     renderSchedule() {
+        this.renderTimeslotManager();
         const container = document.getElementById('scheduleGrid');
 
         if (appData.classrooms.length === 0) {
@@ -1553,17 +1704,16 @@ const Renderer = {
 
     /** Render a single classroom container */
     _renderClassroom(classroom) {
+        const sd = DataStore.getCurrentSchedule();
         const allTimeslots = new Set();
         Config.DAYS.filter(d => d !== 'Arranged').forEach(day => {
-            (classroom.timeslots[day] || []).forEach(ts => allTimeslots.add(ts));
+            (sd.timeslots[day] || []).forEach(ts => allTimeslots.add(ts));
         });
         const sortedTimeslots = Array.from(allTimeslots).sort();
 
         const gridHTML = sortedTimeslots.length > 0
             ? this._renderClassroomGrid(classroom, sortedTimeslots)
             : this._renderClassroomNoTimeslots(classroom);
-
-        const timeslotFormHTML = this._renderTimeslotForm(classroom);
 
         return `
             <div class="classroom-container">
@@ -1577,20 +1727,30 @@ const Renderer = {
                     </div>
                 </div>
                 ${gridHTML}
-                ${timeslotFormHTML}
             </div>
         `;
     },
 
     /** Render the schedule grid for a classroom that has timeslots */
     _renderClassroomGrid(classroom, sortedTimeslots) {
+        // Precompute which timeslots overlap with others
+        const overlappingSlots = new Set();
+        for (let i = 0; i < sortedTimeslots.length; i++) {
+            for (let j = i + 1; j < sortedTimeslots.length; j++) {
+                if (Helpers.timesOverlap(sortedTimeslots[i], sortedTimeslots[j])) {
+                    overlappingSlots.add(sortedTimeslots[i]);
+                    overlappingSlots.add(sortedTimeslots[j]);
+                }
+            }
+        }
+
         return `
             <div class="classroom-schedule ${!classroom.visible ? 'hidden' : ''}">
                 <div class="day-header"></div>
                 ${Config.DAYS.map(day => `<div class="day-header">${day}</div>`).join('')}
 
                 ${sortedTimeslots.map((timeslot, rowIndex) => `
-                    <div class="time-label">${timeslot}</div>
+                    <div class="time-label ${overlappingSlots.has(timeslot) ? 'time-label-overlap' : ''}">${timeslot}${overlappingSlots.has(timeslot) ? ' <span class="overlap-indicator" title="Overlaps with another time slot">⚠️</span>' : ''}</div>
                     ${Config.DAYS.map(day => {
                         if (day === 'Arranged') {
                             return rowIndex === 0
@@ -1623,7 +1783,8 @@ const Renderer = {
 
     /** Render a regular day/timeslot cell */
     _renderDaySlot(classroom, day, timeslot) {
-        const hasTimeslot = (classroom.timeslots[day] || []).includes(timeslot);
+        const sd = DataStore.getCurrentSchedule();
+        const hasTimeslot = (sd.timeslots[day] || []).includes(timeslot);
         if (!hasTimeslot) {
             return `<div class="time-slot" style="background: #f0f0f0;"></div>`;
         }
@@ -1722,36 +1883,61 @@ const Renderer = {
         return `background: ${color}; opacity: ${opacity};`;
     },
 
-    /** Render the timeslot management form for a classroom */
-    _renderTimeslotForm(classroom) {
-        return `
-            <div class="timeslot-form-header" onclick="ClassroomManager.toggleForm('${classroom.id}')">
-                <span>${classroom.timeslotFormExpanded !== false ? '▼' : '▶'} Manage Time Slots</span>
-            </div>
-            <div class="timeslot-form" style="display: ${classroom.timeslotFormExpanded !== false ? 'block' : 'none'};">
-                ${Config.DAYS.filter(day => day !== 'Arranged').map(day => `
-                    <div class="timeslot-day-section">
-                        <h5>${day}</h5>
-                        <div class="timeslot-inputs">
-                            <input type="time" id="startTime-${classroom.id}-${day}" placeholder="Start">
-                            <input type="time" id="endTime-${classroom.id}-${day}" placeholder="End">
-                            <button onclick="ClassroomManager.addTimeslotFromForm('${classroom.id}', '${day}')">Add</button>
-                            ${day === 'Monday' && (classroom.timeslots[day] || []).length > 0 ? `
-                                <button onclick="ClassroomManager.copyTimeslotsToAllDays('${classroom.id}', '${day}')" style="background: #27ae60;">Copy to All</button>
-                            ` : ''}
-                        </div>
-                        ${(classroom.timeslots[day] || []).length > 0 ? `
-                            <div class="timeslots-list">
-                                ${classroom.timeslots[day].map(ts => `
-                                    <div class="timeslot-tag">
-                                        ${ts}
-                                        <button onclick="ClassroomManager.removeTimeslot('${classroom.id}', '${day}', '${ts}')">&times;</button>
+    /** Render the shared time slot manager above classroom grids */
+    renderTimeslotManager() {
+        const container = document.getElementById('timeslotManager');
+        if (!container) return;
+
+        const sd = DataStore.getCurrentSchedule();
+        const isExpanded = sd.timeslotManagerExpanded !== false;
+
+        container.innerHTML = `
+            <div class="timeslot-manager">
+                <div class="timeslot-manager-header" onclick="TimeslotManager.togglePanel()">
+                    <span>${isExpanded ? '▼' : '▶'} Manage Time Slots</span>
+                </div>
+                <div class="timeslot-manager-body" style="display: ${isExpanded ? 'block' : 'none'};">
+                    ${Config.DAYS.filter(day => day !== 'Arranged').map(day => {
+                        const timeslots = sd.timeslots[day] || [];
+                        const overlaps = Helpers.findOverlappingTimeslots(timeslots);
+                        const overlappingSet = new Set();
+                        overlaps.forEach(([a, b]) => { overlappingSet.add(a); overlappingSet.add(b); });
+
+                        return `
+                            <div class="timeslot-day-section">
+                                <h5>${day}</h5>
+                                ${timeslots.length > 0 ? `
+                                    <div class="timeslots-editable-list">
+                                        ${timeslots.map(ts => {
+                                            const [start, end] = ts.split('-');
+                                            const isOverlap = overlappingSet.has(ts);
+                                            return `
+                                                <div class="timeslot-editable ${isOverlap ? 'timeslot-overlap' : ''}">
+                                                    <input type="time" value="${start}"
+                                                        onchange="TimeslotManager.edit('${day}', '${ts}', this.value, '${end}')">
+                                                    <span class="timeslot-separator">&mdash;</span>
+                                                    <input type="time" value="${end}"
+                                                        onchange="TimeslotManager.edit('${day}', '${ts}', '${start}', this.value)">
+                                                    ${isOverlap ? '<span class="overlap-warning" title="This time slot overlaps with another">⚠️</span>' : ''}
+                                                    <button class="timeslot-remove" onclick="TimeslotManager.remove('${day}', '${ts}')">&times;</button>
+                                                </div>
+                                            `;
+                                        }).join('')}
                                     </div>
-                                `).join('')}
+                                ` : ''}
+                                <div class="timeslot-add-row">
+                                    <input type="time" id="shared-startTime-${day}">
+                                    <span class="timeslot-separator">&mdash;</span>
+                                    <input type="time" id="shared-endTime-${day}">
+                                    <button onclick="TimeslotManager.addFromForm('${day}')">Add</button>
+                                    ${day === 'Monday' && timeslots.length > 0 ? `
+                                        <button onclick="TimeslotManager.copyToAllDays('Monday')" style="background: #27ae60;">Copy to All</button>
+                                    ` : ''}
+                                </div>
                             </div>
-                        ` : ''}
-                    </div>
-                `).join('')}
+                        `;
+                    }).join('')}
+                </div>
             </div>
         `;
     }

@@ -1031,6 +1031,122 @@ input:focus, select:focus {
     margin-bottom: 15px;
 }
 
+/* ── Shared Time Slot Manager ── */
+.timeslot-manager {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.timeslot-manager-header {
+    padding: 12px 15px;
+    background: #34495e;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.timeslot-manager-header:hover {
+    background: #2c3e50;
+}
+
+.timeslot-manager-body {
+    padding: 15px;
+    background: #f8f9fa;
+}
+
+.timeslots-editable-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.timeslot-editable {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.timeslot-editable.timeslot-overlap {
+    border-color: #e67e22;
+    background: #fef9e7;
+}
+
+.timeslot-editable input[type="time"] {
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+    width: 120px;
+}
+
+.timeslot-separator {
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+.overlap-warning {
+    font-size: 16px;
+    cursor: help;
+}
+
+.timeslot-remove {
+    background: transparent;
+    color: #e74c3c;
+    padding: 0;
+    font-size: 16px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.timeslot-remove:hover {
+    color: #c0392b;
+    background: #fce4ec;
+    border-color: #e74c3c;
+}
+
+.timeslot-add-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeslot-add-row input[type="time"] {
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+    width: 120px;
+}
+
+/* Overlap indicator on grid time labels */
+.time-label-overlap {
+    background: #fef9e7 !important;
+    border-left: 3px solid #e67e22;
+}
+
+.overlap-indicator {
+    font-size: 12px;
+    cursor: help;
+}
+
 #cohortSummaryBtn {
     padding: 10px 20px;
     background: #3498db;
