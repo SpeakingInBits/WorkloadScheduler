@@ -131,6 +131,7 @@
                 <div class="cohort-summary-controls">
                     <button id="cohortSummaryBtn" onclick="CohortSummary.show()">📊 Cohort Summary</button>
                 </div>
+                <div id="timeslotManager"></div>
                 <div id="validationSummary" class="validation-summary" style="display: none;">
                     <div class="validation-header" onclick="Validation.toggle()">
                         <span class="validation-icon" id="validation-collapse-icon">▼</span>
@@ -292,7 +293,7 @@
                 <li><strong>Add Courses</strong> - Add courses to the global catalog with program, number, and credits</li>
                 <li><strong>Assign Instructors</strong> - Double-click a course to assign an instructor for the current schedule</li>
                 <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
-                <li><strong>Add Time Slots</strong> - Set up schedule times for each day of the week</li>
+                <li><strong>Add Time Slots</strong> - Set up shared schedule times for each day (applies to all rooms)</li>
                 <li><strong>Set Quarter</strong> - Choose a quarter (Fall/Winter/Spring/Summer) for each schedule</li>
                 <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then enter an optional section ID and select modality</li>
                 <li><strong>Move Courses</strong> - Drag scheduled courses between timeslots to reorganize</li>
@@ -315,6 +316,10 @@
                 <li>Use the <strong>"Arranged"</strong> column for courses that don't have fixed meeting times</li>
                 <li><strong>Filter by Program</strong> in the courses section to focus on specific program courses</li>
                 <li>Courses are color-coded: <span style="background: #d4edda; padding: 2px 6px; border-radius: 3px;">green = scheduled</span>, <span style="background: #f8d7da; padding: 2px 6px; border-radius: 3px;">red = unscheduled</span></li>
+                <li><strong>Time slots are shared</strong> across all rooms in a schedule — add them once and every room uses the same times</li>
+                <li><strong>Editable time slots</strong> — click any start or end time to change it; schedule data migrates automatically</li>
+                <li><strong>Overlapping time slots</strong> are detected and flagged with ⚠️ in the grid and time slot manager</li>
+                <li><strong>Arranged courses</strong> do not trigger instructor or cohort conflicts — they are scheduled separately</li>
                 <li>In-person scheduling conflicts are highlighted with a <span style="background: #ffcccc; padding: 2px 6px; border-radius: 3px;">red background</span></li>
             </ul>
 
