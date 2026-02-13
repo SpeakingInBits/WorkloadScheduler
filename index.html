@@ -192,10 +192,14 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="editCourseInstructor">Instructor (this schedule)</label>
+                    <label for="editCourseInstructor">Instructor (this section)</label>
                     <select id="editCourseInstructor">
                         <option value="">Select Instructor (Optional)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="editCourseSection">Section</label>
+                    <input type="text" id="editCourseSection" placeholder="e.g. A, B, 01">
                 </div>
                 <div class="form-group">
                     <label for="editModality">Modality</label>
@@ -241,7 +245,11 @@
     <div id="modalityModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Select Modality</h2>
+                <h2>Schedule Course</h2>
+            </div>
+            <div class="modality-section-input">
+                <label for="modalitySectionInput">Section (optional)</label>
+                <input type="text" id="modalitySectionInput" placeholder="e.g. A, B, 01">
             </div>
             <div class="modality-options">
                 <button class="modality-btn" onclick="selectModality('in-person')">
@@ -272,8 +280,9 @@
                 <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
                 <li><strong>Add Time Slots</strong> - Set up schedule times for each day of the week</li>
                 <li><strong>Set Quarter</strong> - Choose a quarter (Fall/Winter/Spring/Summer) for each schedule</li>
-                <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then select modality</li>
+                <li><strong>Schedule Courses</strong> - Drag courses from the sidebar onto schedule slots, then enter an optional section ID and select modality</li>
                 <li><strong>Move Courses</strong> - Drag scheduled courses between timeslots to reorganize</li>
+                <li><strong>Sections</strong> - Assign section identifiers (e.g. A, B) when scheduling to track different sections of the same course</li>
                 <li><strong>Edit Courses/Instructors</strong> - Double-click any course or instructor to edit details</li>
                 <li><strong>Export/Import</strong> - Save your data as JSON or load previous schedules</li>
             </ol>
@@ -281,7 +290,7 @@
             <h2>Tips</h2>
             <ul style="line-height: 1.8; margin: 20px 0;">
                 <li>Courses are stored in a <strong>global catalog</strong> shared across all schedules</li>
-                <li><strong>Instructor assignments</strong> are per-schedule — the same course can have different instructors in different schedules</li>
+                <li><strong>Instructor assignments</strong> are per-schedule and per-section — the same course can have different instructors in different sections and schedules</li>
                 <li>Set <strong>Quarters Offered</strong> on courses to control which quarters they can be scheduled in</li>
                 <li>Courses with no quarters offered are treated as <strong>"on demand"</strong> and available any quarter</li>
                 <li>Use the <strong>"Copy to All"</strong> button on Monday to quickly set up the same timeslots for the entire week</li>

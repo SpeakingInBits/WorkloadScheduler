@@ -39,14 +39,20 @@ function getCurrentScheduleData() {
     return scheduleData;
 }
 
+// Helper to build the courseInstructors key for a (courseId, section) pair
+function getCourseInstructorKey(courseId, section) {
+    return section ? `${courseId}::${section}` : courseId;
+}
+
 // Helper to get a course from catalog with instructor from current schedule
-function getCourseWithInstructor(courseId) {
+function getCourseWithInstructor(courseId, section) {
     const course = appData.courseCatalog.find(c => c.id === courseId);
     if (!course) return null;
     const scheduleData = getCurrentScheduleData();
+    const key = getCourseInstructorKey(courseId, section);
     return {
         ...course,
-        instructorId: scheduleData.courseInstructors[courseId] || null
+        instructorId: scheduleData.courseInstructors[key] || null
     };
 }
 
@@ -374,9 +380,10 @@ function initializeEventListeners() {
         const modality = document.getElementById('editModality').value || 'in-person';
         const quarterTaken = document.getElementById('editCourseQuarterTaken')?.value.trim() || null;
         const quartersOffered = getQuartersOfferedFromCheckboxes('edit');
+        const section = document.getElementById('editCourseSection')?.value.trim() || '';
 
         if (credits) {
-            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered);
+            saveCourseChanges(courseId, name, credits, instructorId || null, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered, section);
         }
     });
 
@@ -453,7 +460,7 @@ function addInstructor() {
 }
 
 function deleteInstructor(id) {
-    // Check if instructor has courses assigned in current schedule
+    // Check if instructor has courses assigned in current schedule (including section-based keys)
     const scheduleData = getCurrentScheduleData();
     const hasAssignments = Object.values(scheduleData.courseInstructors).some(iId => iId === id);
     if (hasAssignments) {
@@ -468,10 +475,30 @@ function deleteInstructor(id) {
 
 function getInstructorWorkload(instructorId) {
     const scheduleData = getCurrentScheduleData();
-    // Find all courses assigned to this instructor in this schedule that are scheduled
-    return appData.courseCatalog
-        .filter(c => scheduleData.courseInstructors[c.id] === instructorId && isCourseScheduled(c.id))
-        .reduce((sum, c) => sum + c.credits, 0);
+    // Collect all scheduled (courseId, section) pairs
+    const scheduledPairs = new Set();
+    for (const classroomId in appData.schedule) {
+        for (const day in appData.schedule[classroomId]) {
+            for (const time in appData.schedule[classroomId][day]) {
+                const slotData = appData.schedule[classroomId][day][time];
+                const items = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
+                items.forEach(item => {
+                    const key = getCourseInstructorKey(item.courseId, item.section);
+                    scheduledPairs.add(key);
+                });
+            }
+        }
+    }
+    // Sum credits for each unique (courseId, section) assigned to this instructor
+    let total = 0;
+    scheduledPairs.forEach(key => {
+        if (scheduleData.courseInstructors[key] === instructorId) {
+            const courseId = key.includes('::') ? key.split('::')[0] : key;
+            const course = appData.courseCatalog.find(c => c.id === courseId);
+            if (course) total += course.credits;
+        }
+    });
+    return total;
 }
 
 function isCourseScheduled(courseId) {
@@ -572,9 +599,13 @@ function deleteCourse(id) {
                 });
             });
         }
-        // Remove instructor assignment
+        // Remove instructor assignments (including section-based keys)
         if (scheduleData.courseInstructors) {
-            delete scheduleData.courseInstructors[id];
+            Object.keys(scheduleData.courseInstructors).forEach(key => {
+                if (key === id || key.startsWith(id + '::')) {
+                    delete scheduleData.courseInstructors[key];
+                }
+            });
         }
     });
 
@@ -686,7 +717,7 @@ function copyTimeslotsToAllDays(classroomId, sourceDay) {
 }
 
 // Schedule functions
-function scheduleCourse(classroomId, day, time, courseId, modality) {
+function scheduleCourse(classroomId, day, time, courseId, modality, section) {
     if (!appData.schedule[classroomId]) {
         appData.schedule[classroomId] = {};
     }
@@ -699,7 +730,8 @@ function scheduleCourse(classroomId, day, time, courseId, modality) {
 
     appData.schedule[classroomId][day][time].push({
         courseId: courseId,
-        modality: modality || 'in-person'
+        modality: modality || 'in-person',
+        section: section || ''
     });
     saveToLocalStorage();
     render();
@@ -730,12 +762,14 @@ function handleDragStart(e, courseId) {
     const sourceDay = e.target.dataset.sourceDay;
     const sourceTimeslot = e.target.dataset.sourceTimeslot;
     const sourceCourseIndex = e.target.dataset.sourceCourseIndex;
+    const sourceSection = e.target.dataset.sourceSection;
 
     if (sourceClassroomId && sourceDay && sourceTimeslot) {
         e.dataTransfer.setData('sourceClassroomId', sourceClassroomId);
         e.dataTransfer.setData('sourceDay', sourceDay);
         e.dataTransfer.setData('sourceTimeslot', sourceTimeslot);
         e.dataTransfer.setData('sourceCourseIndex', sourceCourseIndex || '');
+        e.dataTransfer.setData('sourceSection', sourceSection || '');
     }
 }
 
@@ -767,15 +801,19 @@ function handleDrop(e, classroomId, day, time) {
         if (sourceClassroomId && sourceDay && sourceTimeslot) {
             const sourceSlot = appData.schedule[sourceClassroomId]?.[sourceDay]?.[sourceTimeslot];
             let modality = 'in-person';
+            let section = e.dataTransfer.getData('sourceSection') || '';
             if (Array.isArray(sourceSlot) && sourceCourseIndex !== '') {
-                modality = sourceSlot[parseInt(sourceCourseIndex)]?.modality || 'in-person';
+                const srcItem = sourceSlot[parseInt(sourceCourseIndex)];
+                modality = srcItem?.modality || 'in-person';
+                section = srcItem?.section || section;
             } else if (sourceSlot && !Array.isArray(sourceSlot)) {
                 modality = sourceSlot.modality || 'in-person';
+                section = sourceSlot.section || section;
             }
 
             const isSameSlot = sourceClassroomId === classroomId && sourceDay === day && sourceTimeslot === time;
             if (!isSameSlot) {
-                scheduleCourse(classroomId, day, time, courseId, modality);
+                scheduleCourse(classroomId, day, time, courseId, modality, section);
                 if (sourceCourseIndex !== '') {
                     unscheduleCourse(sourceClassroomId, sourceDay, sourceTimeslot, parseInt(sourceCourseIndex));
                 } else {
@@ -796,7 +834,9 @@ function showModalityModal() {
 
 function selectModality(modality) {
     if (pendingDrop) {
-        scheduleCourse(pendingDrop.classroomId, pendingDrop.day, pendingDrop.time, pendingDrop.courseId, modality);
+        const sectionInput = document.getElementById('modalitySectionInput');
+        const section = sectionInput ? sectionInput.value.trim() : '';
+        scheduleCourse(pendingDrop.classroomId, pendingDrop.day, pendingDrop.time, pendingDrop.courseId, modality, section);
         pendingDrop = null;
     }
     closeModalityModal();
@@ -804,6 +844,8 @@ function selectModality(modality) {
 
 function closeModalityModal() {
     document.getElementById('modalityModal').style.display = 'none';
+    const sectionInput = document.getElementById('modalitySectionInput');
+    if (sectionInput) sectionInput.value = '';
     pendingDrop = null;
 }
 
@@ -850,18 +892,28 @@ function showCourseModal(courseId, classroomId, day, timeslot, courseIndex) {
     // Get current modality
     const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
     let currentModality = 'in-person';
+    let currentSection = '';
     if (Array.isArray(slotData) && courseIndex !== undefined) {
         currentModality = slotData[courseIndex]?.modality || 'in-person';
+        currentSection = slotData[courseIndex]?.section || '';
     } else if (slotData && !Array.isArray(slotData)) {
         currentModality = slotData.modality || 'in-person';
+        currentSection = slotData.section || '';
     }
     document.getElementById('editModality').value = currentModality;
 
-    // Update instructor dropdown (per-schedule assignment)
+    // Show and populate section field when editing from schedule
+    const sectionGroup = document.getElementById('editCourseSection')?.closest('.form-group');
+    if (sectionGroup) sectionGroup.style.display = 'block';
+    const sectionInput = document.getElementById('editCourseSection');
+    if (sectionInput) sectionInput.value = currentSection;
+
+    // Update instructor dropdown (per-schedule, per-section assignment)
     const instructorSelect = document.getElementById('editCourseInstructor');
     instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
         appData.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-    instructorSelect.value = scheduleData.courseInstructors[courseId] || '';
+    const instrKey = getCourseInstructorKey(courseId, currentSection);
+    instructorSelect.value = scheduleData.courseInstructors[instrKey] || '';
 
     const modal = document.getElementById('courseModal');
     modal.style.display = 'block';
@@ -900,6 +952,10 @@ function showCourseModalFromList(courseId) {
     // Hide modality field when editing from list
     const modalityGroup = document.getElementById('editModality').closest('.form-group');
     if (modalityGroup) modalityGroup.style.display = 'none';
+
+    // Hide section field when editing from list
+    const sectionGroup = document.getElementById('editCourseSection')?.closest('.form-group');
+    if (sectionGroup) sectionGroup.style.display = 'none';
 
     // Update instructor dropdown (per-schedule assignment)
     const instructorSelect = document.getElementById('editCourseInstructor');
@@ -943,7 +999,7 @@ function saveInstructorChanges(instructorId, name, color) {
     }
 }
 
-function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered) {
+function saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered, section) {
     const course = appData.courseCatalog.find(c => c.id === courseId);
     if (course) {
         // Update catalog properties
@@ -954,21 +1010,28 @@ function saveCourseChanges(courseId, name, credits, instructorId, classroomId, d
         course.courseNumber = courseNumber || '';
         course.quartersOffered = quartersOffered || [];
 
-        // Update instructor assignment for current schedule
+        // Determine the section for this scheduled instance
+        let currentSection = section || '';
+
+        // Update instructor assignment for current schedule (keyed by courseId::section)
         const scheduleData = getCurrentScheduleData();
+        const instrKey = getCourseInstructorKey(courseId, currentSection);
         if (instructorId) {
-            scheduleData.courseInstructors[courseId] = instructorId;
+            scheduleData.courseInstructors[instrKey] = instructorId;
         } else {
-            delete scheduleData.courseInstructors[courseId];
+            delete scheduleData.courseInstructors[instrKey];
         }
 
-        // Update modality for this specific scheduled slot
-        if (classroomId && day && timeslot && modality) {
+        // Update modality and section for this specific scheduled slot
+        if (classroomId && day && timeslot) {
             const slotData = appData.schedule[classroomId]?.[day]?.[timeslot];
             if (Array.isArray(slotData) && courseIndex !== undefined && courseIndex !== '') {
-                slotData[parseInt(courseIndex)].modality = modality;
+                const idx = parseInt(courseIndex);
+                if (modality) slotData[idx].modality = modality;
+                slotData[idx].section = currentSection;
             } else if (slotData && !Array.isArray(slotData)) {
-                slotData.modality = modality;
+                if (modality) slotData.modality = modality;
+                slotData.section = currentSection;
             }
         }
 
@@ -989,9 +1052,10 @@ function render() {
 }
 
 // Helper function to get scheduled course style based on instructor color and filter
-function getScheduledCourseStyle(course, courseId) {
+function getScheduledCourseStyle(course, courseId, section) {
     const scheduleData = getCurrentScheduleData();
-    const instructorId = scheduleData.courseInstructors[courseId] || (course ? course.instructorId : null);
+    const instrKey = getCourseInstructorKey(courseId, section);
+    const instructorId = scheduleData.courseInstructors[instrKey] || (course ? course.instructorId : null);
     const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
     const instructorColor = instructor ? (instructor.color || '#3498db') : '#95a5a6';
 
@@ -1053,7 +1117,8 @@ function validateSchedule() {
                         courseId: item.courseId,
                         classroomId: classroomId,
                         roomNumber: roomNumber,
-                        modality: item.modality
+                        modality: item.modality,
+                        section: item.section || ''
                     });
                 });
             }
@@ -1068,22 +1133,25 @@ function validateSchedule() {
         const instructorGroups = {};
         entries.forEach(entry => {
             const course = appData.courseCatalog.find(c => c.id === entry.courseId);
-            const instructorId = scheduleData.courseInstructors[entry.courseId] || null;
+            const instrKey = getCourseInstructorKey(entry.courseId, entry.section);
+            const instructorId = scheduleData.courseInstructors[instrKey] || null;
             if (course && instructorId) {
                 if (!instructorGroups[instructorId]) {
                     instructorGroups[instructorId] = [];
                 }
+                const sectionSuffix = entry.section ? ` \u00a7${entry.section}` : '';
                 instructorGroups[instructorId].push({
                     ...entry,
-                    courseName: getCourseDisplayName(course)
+                    courseName: getCourseDisplayName(course) + sectionSuffix
                 });
             }
         });
 
         for (const instructorId in instructorGroups) {
             const group = instructorGroups[instructorId];
-            const uniqueCourseIds = [...new Set(group.map(g => g.courseId))];
-            if (uniqueCourseIds.length > 1) {
+            // Conflict if instructor has more than one distinct (courseId, section) pair in same timeslot
+            const uniquePairs = [...new Set(group.map(g => getCourseInstructorKey(g.courseId, g.section)))];
+            if (uniquePairs.length > 1) {
                 const instructor = appData.instructors.find(i => i.id === instructorId);
                 const instructorName = instructor ? instructor.name : 'Unknown';
                 const courseNames = group.map(g => `${g.courseName} (Room ${g.roomNumber})`).join(', ');
@@ -1363,10 +1431,12 @@ function renderSchedule() {
                                          ondrop="handleDrop(event, '${classroom.id}', '${day}', 'arranged')">
                                         ${courses.map((item, index) => {
                                             const course = appData.courseCatalog.find(c => c.id === item.courseId);
-                                            const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                            const instrKey = getCourseInstructorKey(item.courseId, item.section);
+                                            const instructorId = scheduleData.courseInstructors[instrKey] || null;
                                             const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
-                                            const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                            const courseStyle = getScheduledCourseStyle(course, item.courseId, item.section);
                                             const displayName = getCourseDisplayName(course);
+                                            const sectionLabel = item.section ? ` <span class="section-badge">§${item.section}</span>` : '';
                                             return `
                                                 <div class="scheduled-course"
                                                      style="${courseStyle}"
@@ -1375,11 +1445,12 @@ function renderSchedule() {
                                                      data-source-day="${day}"
                                                      data-source-timeslot="arranged"
                                                      data-source-course-index="${index}"
+                                                     data-source-section="${item.section || ''}"
                                                      ondragstart="handleDragStart(event, '${item.courseId}')"
                                                      ondragend="handleDragEnd(event)"
                                                      ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                                     <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
-                                                    <div class="course-name">${displayName}</div>
+                                                    <div class="course-name">${displayName}${sectionLabel}</div>
                                                     <div class="course-meta">
                                                         ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                         <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1414,10 +1485,12 @@ function renderSchedule() {
                                      ondrop="handleDrop(event, '${classroom.id}', '${day}', '${timeslot}')">
                                     ${courses.map((item, index) => {
                                         const course = appData.courseCatalog.find(c => c.id === item.courseId);
-                                        const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                        const instrKey = getCourseInstructorKey(item.courseId, item.section);
+                                        const instructorId = scheduleData.courseInstructors[instrKey] || null;
                                         const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
-                                        const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                        const courseStyle = getScheduledCourseStyle(course, item.courseId, item.section);
                                         const displayName = getCourseDisplayName(course);
+                                        const sectionLabel = item.section ? ` <span class="section-badge">§${item.section}</span>` : '';
                                         return `
                                             <div class="scheduled-course"
                                                  style="${courseStyle}"
@@ -1426,11 +1499,12 @@ function renderSchedule() {
                                                  data-source-day="${day}"
                                                  data-source-timeslot="${timeslot}"
                                                  data-source-course-index="${index}"
+                                                 data-source-section="${item.section || ''}"
                                                  ondragstart="handleDragStart(event, '${item.courseId}')"
                                                  ondragend="handleDragEnd(event)"
                                                  ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', '${timeslot}', ${index})">
                                                 <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', '${timeslot}', ${index})">&times;</button>
-                                                <div class="course-name">${displayName}${hasConflict ? ' ⚠️' : ''}</div>
+                                                <div class="course-name">${displayName}${sectionLabel}${hasConflict ? ' ⚠️' : ''}</div>
                                                 <div class="course-meta">
                                                     ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                     <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1499,10 +1573,12 @@ function renderSchedule() {
                                  ondrop="handleDrop(event, '${classroom.id}', '${day}', 'arranged')">
                                 ${courses.map((item, index) => {
                                     const course = appData.courseCatalog.find(c => c.id === item.courseId);
-                                    const instructorId = scheduleData.courseInstructors[item.courseId] || null;
+                                    const instrKey = getCourseInstructorKey(item.courseId, item.section);
+                                    const instructorId = scheduleData.courseInstructors[instrKey] || null;
                                     const instructor = instructorId ? appData.instructors.find(i => i.id === instructorId) : null;
-                                    const courseStyle = getScheduledCourseStyle(course, item.courseId);
+                                    const courseStyle = getScheduledCourseStyle(course, item.courseId, item.section);
                                     const displayName = getCourseDisplayName(course);
+                                    const sectionLabel = item.section ? ` <span class="section-badge">§${item.section}</span>` : '';
                                     return `
                                         <div class="scheduled-course"
                                              style="${courseStyle}"
@@ -1511,11 +1587,12 @@ function renderSchedule() {
                                              data-source-day="${day}"
                                              data-source-timeslot="arranged"
                                              data-source-course-index="${index}"
+                                             data-source-section="${item.section || ''}"
                                              ondragstart="handleDragStart(event, '${item.courseId}')"
                                              ondragend="handleDragEnd(event)"
                                              ondblclick="showCourseModal('${item.courseId}', '${classroom.id}', '${day}', 'arranged', ${index})">
                                             <button class="remove-course" onclick="event.stopPropagation(); unscheduleCourse('${classroom.id}', '${day}', 'arranged', ${index})">&times;</button>
-                                            <div class="course-name">${displayName}</div>
+                                            <div class="course-name">${displayName}${sectionLabel}</div>
                                             <div class="course-meta">
                                                 ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                                                 <span class="modality-badge">${modalityIcon[item.modality]} ${item.modality}</span>
@@ -1786,10 +1863,16 @@ function loadFromLocalStorage() {
                                 if (typeof value === 'string') {
                                     scheduleData.schedule[classroom.id][day][time] = [{
                                         courseId: value,
-                                        modality: 'in-person'
+                                        modality: 'in-person',
+                                        section: ''
                                     }];
                                 } else if (value && !Array.isArray(value) && value.courseId) {
+                                    if (value.section === undefined) value.section = '';
                                     scheduleData.schedule[classroom.id][day][time] = [value];
+                                } else if (Array.isArray(value)) {
+                                    value.forEach(item => {
+                                        if (item && item.section === undefined) item.section = '';
+                                    });
                                 }
                             });
                         }
