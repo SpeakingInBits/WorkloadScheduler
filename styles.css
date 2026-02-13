@@ -1026,3 +1026,121 @@ input:focus, select:focus {
     border-radius: 4px;
     font-size: 14px;
 }
+/* Cohort Summary */
+.cohort-summary-controls {
+    margin-bottom: 15px;
+}
+
+#cohortSummaryBtn {
+    padding: 10px 20px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+#cohortSummaryBtn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+#cohortSummaryBtn:active {
+    transform: translateY(0);
+}
+
+.cohort-summary-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+    border: 1px solid #dee2e6;
+}
+
+.cohort-name {
+    color: #2c3e50;
+    font-size: 22px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #3498db;
+}
+
+.cohort-stats {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 20px;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    border-left: 4px solid #3498db;
+}
+
+.cohort-stat {
+    font-size: 15px;
+    color: #555;
+}
+
+.cohort-stat strong {
+    color: #2c3e50;
+    margin-right: 5px;
+}
+
+.cohort-classes-list {
+    display: grid;
+    gap: 15px;
+}
+
+.cohort-class {
+    background: white;
+    border-radius: 6px;
+    padding: 15px;
+    border: 1px solid #e1e4e8;
+    transition: box-shadow 0.2s;
+}
+
+.cohort-class:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cohort-class-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 6px;
+}
+
+.cohort-class-info {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin-bottom: 12px;
+}
+
+.cohort-schedule-list {
+    display: grid;
+    gap: 8px;
+}
+
+.cohort-schedule-item {
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #495057;
+    border-left: 3px solid #3498db;
+}
+
+.cohort-schedule-item strong {
+    color: #2c3e50;
+    min-width: 100px;
+    display: inline-block;
+}
+
+.cohort-modality {
+    margin-left: 10px;
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 500;
+}
