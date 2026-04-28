@@ -1,3 +1,61 @@
+:root {
+  /* ── Brand / Primary ── */
+  --color-primary:        #3498db;
+  --color-primary-hover:  #2980b9;
+
+  /* ── Danger / Delete ── */
+  --color-danger:         #e74c3c;
+  --color-danger-hover:   #c0392b;
+
+  /* ── Success ── */
+  --color-success:        #27ae60;
+  --color-success-hover:  #229954;
+
+  /* ── Neutrals ── */
+  --color-dark:           #2c3e50;
+  --color-dark-header:    #34495e;
+  --color-muted:          #7f8c8d;
+  --color-border:         #ddd;
+  --color-bg-light:       #f8f9fa;
+  --color-bg-subtle:      #ecf0f1;
+  --color-bg-page:        #f5f5f5;
+
+  /* ── Accent ── */
+  --color-purple:         #8e44ad;
+  --color-teal:           #17a2b8;
+  --color-warning:        #e67e22;
+  --color-amber:          #f39c12;
+  --color-amber-dark:     #856404;
+  --color-amber-light:    #ffc107;
+
+  /* ── Status / Semantic ── */
+  --color-scheduled-bg:   var(--color-scheduled-bg);
+  --color-scheduled-br:   var(--color-scheduled-br);
+  --color-error-bg:       var(--color-error-bg);
+  --color-error-br:       var(--color-error-br);
+  --color-error-text:     var(--color-error-text);
+  --color-info-bg:        var(--color-info-bg);
+  --color-info-text:      var(--color-info-text);
+  --color-warn-bg:        var(--color-warn-bg);
+  --color-overlap-bg:     var(--color-overlap-bg);
+  --color-conflict-bg:    var(--color-conflict-bg);
+  --color-hover-bg:       var(--color-hover-bg);
+
+  /* ── Miscellaneous ── */
+  --color-scrollbar-track:  var(--color-scrollbar-track);
+  --color-btn-secondary-hv: var(--color-btn-secondary-hv);
+  --color-border-subtle:    var(--color-border-subtle);
+  --color-border-card:      var(--color-border-card);
+  --color-text-body:        var(--color-text-body);
+  --color-text-muted2:      var(--color-text-muted2);
+  --color-remove-hover-bg:  var(--color-remove-hover-bg);
+
+  /* ── Spacing & Shape ── */
+  --radius:               4px;
+  --radius-lg:            8px;
+  --shadow:               0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-lg:            0 4px 20px rgba(0, 0, 0, 0.3);
+}
 * {
     margin: 0;
     padding: 0;
@@ -6,7 +64,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f5f5f5;
+    background: var(--color-bg-page);
     color: #333;
 }
 
@@ -31,7 +89,7 @@ header {
 
 header h1 {
     font-size: 24px;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .schedule-controls {
@@ -56,19 +114,19 @@ header h1 {
 .schedule-controls button {
     padding: 6px 12px;
     font-size: 13px;
-    background: #27ae60;
+    background: var(--color-success);
 }
 
 .schedule-controls button:hover {
-    background: #229954;
+    background: var(--color-success-hover);
 }
 
 #deleteScheduleBtn {
-    background: #e74c3c !important;
+    background: var(--color-danger) !important;
 }
 
 #deleteScheduleBtn:hover {
-    background: #c0392b !important;
+    background: var(--color-danger-hover) !important;
 }
 
 .help-icon {
@@ -77,7 +135,7 @@ header h1 {
     height: 24px;
     line-height: 24px;
     text-align: center;
-    background: #3498db;
+    background: var(--color-primary);
     color: white;
     border-radius: 50%;
     font-size: 16px;
@@ -89,7 +147,7 @@ header h1 {
 }
 
 .help-icon:hover {
-    background: #2980b9;
+    background: var(--color-primary-hover);
     transform: scale(1.1);
 }
 
@@ -100,7 +158,7 @@ header h1 {
 
 button {
     padding: 8px 16px;
-    background: #3498db;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 4px;
@@ -110,7 +168,7 @@ button {
 }
 
 button:hover {
-    background: #2980b9;
+    background: var(--color-primary-hover);
 }
 
 .main-content {
@@ -137,17 +195,17 @@ button:hover {
 }
 
 .sidebar::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--color-scrollbar-track);
     border-radius: 4px;
 }
 
 .sidebar::-webkit-scrollbar-thumb {
-    background: #888;
+    background: var(--color-scrollbar, #888);
     border-radius: 4px;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: var(--color-scrollbar-hover, #555);
 }
 
 .panel {
@@ -160,7 +218,7 @@ button:hover {
 .panel h2 {
     font-size: 18px;
     margin-bottom: 15px;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .collapsible-header {
@@ -173,7 +231,7 @@ button:hover {
 }
 
 .collapsible-header:hover {
-    color: #3498db;
+    color: var(--color-primary);
 }
 
 .collapse-icon {
@@ -213,7 +271,7 @@ input, select {
 
 input:focus, select:focus {
     outline: none;
-    border-color: #3498db;
+    border-color: var(--color-primary);
 }
 
 #instructorsList, #coursesList, #programsList {
@@ -224,7 +282,7 @@ input:focus, select:focus {
 
 .instructor-item, .course-item, .program-item {
     padding: 10px;
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     border-radius: 4px;
     display: flex;
     justify-content: space-between;
@@ -233,17 +291,17 @@ input:focus, select:focus {
 
 /* Program items */
 .program-item {
-    border-left: 4px solid #8e44ad;
+    border-left: 4px solid var(--color-purple);
 }
 
 .program-name {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .program-meta {
     font-size: 12px;
-    color: #7f8c8d;
+    color: var(--color-muted);
 }
 
 /* Program filter */
@@ -279,7 +337,7 @@ input:focus, select:focus {
 }
 
 .quarters-offered-dropdown .filter-toggle:hover {
-    border-color: #3498db;
+    border-color: var(--color-primary);
     background: white;
 }
 
@@ -319,7 +377,7 @@ input:focus, select:focus {
 }
 
 .filter-toggle:hover {
-    border-color: #3498db;
+    border-color: var(--color-primary);
     background: white;
 }
 
@@ -347,7 +405,7 @@ input:focus, select:focus {
 }
 
 .filter-checkbox:hover {
-    background: #f8f9fa;
+    background: var(--color-bg-light);
 }
 
 .filter-checkbox input[type="checkbox"] {
@@ -364,7 +422,7 @@ input:focus, select:focus {
 
 .instructor-item .workload {
     font-size: 12px;
-    color: #7f8c8d;
+    color: var(--color-muted);
     font-weight: 600;
 }
 
@@ -375,17 +433,17 @@ input:focus, select:focus {
 }
 
 .course-item.course-scheduled {
-    background: #d4edda;
-    border-color: #c3e6cb;
+    background: var(--color-scheduled-bg);
+    border-color: var(--color-scheduled-br);
 }
 
 .course-item.course-unscheduled {
-    background: #f8d7da;
-    border-color: #f5c6cb;
+    background: var(--color-error-bg);
+    border-color: var(--color-error-br);
 }
 
 .course-item.course-no-program {
-    border-left: 4px solid #e74c3c;
+    border-left: 4px solid var(--color-danger);
 }
 
 .no-program-badge {
@@ -394,8 +452,8 @@ input:focus, select:focus {
 }
 
 .course-item:hover {
-    background: #e8f4f8 !important;
-    border-color: #3498db;
+    background: var(--color-hover-bg) !important;
+    border-color: var(--color-primary);
 }
 
 .course-item.dragging {
@@ -410,22 +468,22 @@ input:focus, select:focus {
 
 .course-name {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .course-meta {
     font-size: 12px;
-    color: #7f8c8d;
+    color: var(--color-muted);
 }
 
 .delete-btn {
-    background: #e74c3c;
+    background: var(--color-danger);
     padding: 4px 8px;
     font-size: 12px;
 }
 
 .delete-btn:hover {
-    background: #c0392b;
+    background: var(--color-danger-hover);
 }
 
 /* Schedule Area */
@@ -441,7 +499,7 @@ input:focus, select:focus {
 .schedule-area h2 {
     font-size: 18px;
     margin-bottom: 15px;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 #scheduleGrid {
@@ -457,7 +515,7 @@ input:focus, select:focus {
 }
 
 .classroom-header {
-    background: #34495e;
+    background: var(--color-dark-header);
     color: white;
     padding: 12px 15px;
     display: flex;
@@ -506,14 +564,14 @@ input:focus, select:focus {
 }
 
 .day-header {
-    background: #ecf0f1;
+    background: var(--color-bg-subtle);
     font-weight: 600;
     text-align: center;
     font-size: 14px;
 }
 
 .time-label {
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     font-size: 13px;
     font-weight: 500;
     display: flex;
@@ -528,12 +586,12 @@ input:focus, select:focus {
 }
 
 .time-slot.drag-over {
-    background: #e8f4f8;
-    border: 2px dashed #3498db;
+    background: var(--color-hover-bg);
+    border: 2px dashed var(--color-primary);
 }
 
 .time-slot.occupied {
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -545,11 +603,11 @@ input:focus, select:focus {
 }
 
 .time-slot.conflict {
-    background: #ffcccc;
+    background: var(--color-conflict-bg);
 }
 
 .time-slot.conflict .scheduled-course {
-    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    background: linear-gradient(135deg, var(--color-danger) 0%, var(--color-danger-hover) 100%);
 }
 
 .scheduled-course {
@@ -606,7 +664,7 @@ input:focus, select:focus {
 /* Form Timeslots */
 .timeslot-form-header {
     padding: 12px 15px;
-    background: #34495e;
+    background: var(--color-dark-header);
     color: white;
     cursor: pointer;
     user-select: none;
@@ -617,19 +675,19 @@ input:focus, select:focus {
 }
 
 .timeslot-form-header:hover {
-    background: #2c3e50;
+    background: var(--color-dark);
 }
 
 .timeslot-form {
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     border-top: 1px solid #ddd;
 }
 
 .timeslot-form h4 {
     font-size: 14px;
     margin-bottom: 10px;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .timeslot-inputs {
@@ -662,7 +720,7 @@ input:focus, select:focus {
 
 .timeslot-tag button {
     background: transparent;
-    color: #e74c3c;
+    color: var(--color-danger);
     padding: 0;
     font-size: 14px;
     width: 16px;
@@ -673,14 +731,14 @@ input:focus, select:focus {
 }
 
 .timeslot-tag button:hover {
-    color: #c0392b;
+    color: var(--color-danger-hover);
 }
 
 /* Empty state */
 .empty-state {
     text-align: center;
     padding: 40px;
-    color: #7f8c8d;
+    color: var(--color-muted);
 }
 
 .empty-state p {
@@ -739,19 +797,19 @@ input:focus, select:focus {
 .modal-header h2 {
     margin: 0;
     font-size: 20px;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .close-modal {
     font-size: 28px;
     font-weight: bold;
-    color: #7f8c8d;
+    color: var(--color-muted);
     cursor: pointer;
     line-height: 1;
 }
 
 .close-modal:hover {
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 #editCourseForm {
@@ -770,7 +828,7 @@ input:focus, select:focus {
     display: block;
     margin-bottom: 5px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
     font-size: 14px;
 }
 
@@ -792,21 +850,21 @@ input:focus, select:focus {
 }
 
 .btn-primary {
-    background: #3498db;
+    background: var(--color-primary);
     color: white;
 }
 
 .btn-primary:hover {
-    background: #2980b9;
+    background: var(--color-primary-hover);
 }
 
 .btn-secondary {
-    background: #ecf0f1;
-    color: #2c3e50;
+    background: var(--color-bg-subtle);
+    color: var(--color-dark);
 }
 
 .btn-secondary:hover {
-    background: #d5dbdb;
+    background: var(--color-btn-secondary-hv);
 }
 
 /* Modality Modal */
@@ -831,12 +889,12 @@ input:focus, select:focus {
     gap: 10px;
     font-size: 14px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
 }
 
 .modality-btn:hover {
-    border-color: #3498db;
-    background: #e8f4f8;
+    border-color: var(--color-primary);
+    background: var(--color-hover-bg);
     transform: translateY(-2px);
 }
 
@@ -859,14 +917,14 @@ input:focus, select:focus {
 .timeslot-day-section {
     margin-bottom: 20px;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     border-radius: 4px;
 }
 
 .timeslot-day-section h5 {
     font-size: 13px;
     margin-bottom: 10px;
-    color: #2c3e50;
+    color: var(--color-dark);
     font-weight: 600;
 }
 
@@ -883,8 +941,8 @@ input:focus, select:focus {
 
 /* Validation Summary */
 .validation-summary {
-    background: #fff3cd;
-    border: 1px solid #ffc107;
+    background: var(--color-warn-bg);
+    border: 1px solid var(--color-amber-light, #ffc107);
     border-radius: 8px;
     margin-bottom: 15px;
     overflow: hidden;
@@ -899,7 +957,7 @@ input:focus, select:focus {
     user-select: none;
     font-weight: 600;
     font-size: 14px;
-    color: #856404;
+    color: var(--color-amber-dark, #856404);
     transition: background 0.2s;
 }
 
@@ -917,7 +975,7 @@ input:focus, select:focus {
 }
 
 .validation-count {
-    background: #e74c3c;
+    background: var(--color-danger);
     color: white;
     padding: 2px 8px;
     border-radius: 12px;
@@ -945,27 +1003,27 @@ input:focus, select:focus {
 }
 
 .validation-error-item.instructor-conflict {
-    background: #f8d7da;
-    border-left: 3px solid #e74c3c;
-    color: #721c24;
+    background: var(--color-error-bg);
+    border-left: 3px solid var(--color-danger);
+    color: var(--color-error-text);
 }
 
 .validation-error-item.cohort-conflict {
-    background: #d1ecf1;
-    border-left: 3px solid #17a2b8;
-    color: #0c5460;
+    background: var(--color-info-bg);
+    border-left: 3px solid var(--color-teal);
+    color: var(--color-info-text);
 }
 
 .validation-error-item.program-conflict {
-    background: #f8d7da;
-    border-left: 3px solid #8e44ad;
-    color: #721c24;
+    background: var(--color-error-bg);
+    border-left: 3px solid var(--color-purple);
+    color: var(--color-error-text);
 }
 
 .validation-error-item.quarter-conflict {
-    background: #fff3cd;
-    border-left: 3px solid #f39c12;
-    color: #856404;
+    background: var(--color-warn-bg);
+    border-left: 3px solid var(--color-amber);
+    color: var(--color-amber-dark, #856404);
 }
 
 .validation-error-icon {
@@ -1015,7 +1073,7 @@ input:focus, select:focus {
     display: block;
     margin-bottom: 5px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
     font-size: 14px;
 }
 
@@ -1041,7 +1099,7 @@ input:focus, select:focus {
 
 .timeslot-manager-header {
     padding: 12px 15px;
-    background: #34495e;
+    background: var(--color-dark-header);
     color: white;
     cursor: pointer;
     user-select: none;
@@ -1051,12 +1109,12 @@ input:focus, select:focus {
 }
 
 .timeslot-manager-header:hover {
-    background: #2c3e50;
+    background: var(--color-dark);
 }
 
 .timeslot-manager-body {
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--color-bg-light);
 }
 
 .timeslots-editable-list {
@@ -1078,8 +1136,8 @@ input:focus, select:focus {
 }
 
 .timeslot-editable.timeslot-overlap {
-    border-color: #e67e22;
-    background: #fef9e7;
+    border-color: var(--color-warning);
+    background: var(--color-overlap-bg);
 }
 
 .timeslot-editable input[type="time"] {
@@ -1091,7 +1149,7 @@ input:focus, select:focus {
 }
 
 .timeslot-separator {
-    color: #7f8c8d;
+    color: var(--color-muted);
     font-weight: 600;
 }
 
@@ -1102,7 +1160,7 @@ input:focus, select:focus {
 
 .timeslot-remove {
     background: transparent;
-    color: #e74c3c;
+    color: var(--color-danger);
     padding: 0;
     font-size: 16px;
     width: 22px;
@@ -1117,9 +1175,9 @@ input:focus, select:focus {
 }
 
 .timeslot-remove:hover {
-    color: #c0392b;
-    background: #fce4ec;
-    border-color: #e74c3c;
+    color: var(--color-danger-hover);
+    background: var(--color-remove-hover-bg);
+    border-color: var(--color-danger);
 }
 
 .timeslot-add-row {
@@ -1138,8 +1196,8 @@ input:focus, select:focus {
 
 /* Overlap indicator on grid time labels */
 .time-label-overlap {
-    background: #fef9e7 !important;
-    border-left: 3px solid #e67e22;
+    background: var(--color-overlap-bg) !important;
+    border-left: 3px solid var(--color-warning);
 }
 
 .overlap-indicator {
@@ -1149,7 +1207,7 @@ input:focus, select:focus {
 
 #cohortSummaryBtn {
     padding: 10px 20px;
-    background: #3498db;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1160,7 +1218,7 @@ input:focus, select:focus {
 }
 
 #cohortSummaryBtn:hover {
-    background: #2980b9;
+    background: var(--color-primary-hover);
     transform: translateY(-1px);
 }
 
@@ -1169,19 +1227,19 @@ input:focus, select:focus {
 }
 
 .cohort-summary-section {
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 25px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--color-border-subtle);
 }
 
 .cohort-name {
-    color: #2c3e50;
+    color: var(--color-dark);
     font-size: 22px;
     margin-bottom: 12px;
     padding-bottom: 10px;
-    border-bottom: 2px solid #3498db;
+    border-bottom: 2px solid var(--color-primary);
 }
 
 .cohort-stats {
@@ -1191,16 +1249,16 @@ input:focus, select:focus {
     padding: 12px;
     background: white;
     border-radius: 6px;
-    border-left: 4px solid #3498db;
+    border-left: 4px solid var(--color-primary);
 }
 
 .cohort-stat {
     font-size: 15px;
-    color: #555;
+    color: var(--color-scrollbar-hover, #555);
 }
 
 .cohort-stat strong {
-    color: #2c3e50;
+    color: var(--color-dark);
     margin-right: 5px;
 }
 
@@ -1213,7 +1271,7 @@ input:focus, select:focus {
     background: white;
     border-radius: 6px;
     padding: 15px;
-    border: 1px solid #e1e4e8;
+    border: 1px solid var(--color-border-card);
     transition: box-shadow 0.2s;
 }
 
@@ -1224,13 +1282,13 @@ input:focus, select:focus {
 .cohort-class-name {
     font-size: 17px;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--color-dark);
     margin-bottom: 6px;
 }
 
 .cohort-class-info {
     font-size: 13px;
-    color: #7f8c8d;
+    color: var(--color-muted);
     margin-bottom: 12px;
 }
 
@@ -1241,15 +1299,15 @@ input:focus, select:focus {
 
 .cohort-schedule-item {
     padding: 8px 12px;
-    background: #f8f9fa;
+    background: var(--color-bg-light);
     border-radius: 4px;
     font-size: 14px;
-    color: #495057;
-    border-left: 3px solid #3498db;
+    color: var(--color-text-body);
+    border-left: 3px solid var(--color-primary);
 }
 
 .cohort-schedule-item strong {
-    color: #2c3e50;
+    color: var(--color-dark);
     min-width: 100px;
     display: inline-block;
 }
@@ -1257,6 +1315,6 @@ input:focus, select:focus {
 .cohort-modality {
     margin-left: 10px;
     font-size: 13px;
-    color: #6c757d;
+    color: var(--color-text-muted2);
     font-weight: 500;
 }
