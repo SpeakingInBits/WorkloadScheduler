@@ -208,10 +208,10 @@ class App {
         });
 
         // ── Modal close buttons ──
-        document.querySelector('.close-modal')?.addEventListener('click', () => this.#modals.closeCourse());
-        document.querySelector('.close-instructor-modal')?.addEventListener('click', () => this.#modals.closeInstructor());
-        document.querySelector('.close-cohort-modal')?.addEventListener('click', () => this.#cohortSummary.close());
-        document.querySelector('.close-help-modal')?.addEventListener('click', () => this.#modals.closeHelp());
+        document.querySelectorAll('.close-modal').forEach(el => el.addEventListener('click', () => this.#modals.closeCourse()));
+        document.querySelectorAll('.close-instructor-modal').forEach(el => el.addEventListener('click', () => this.#modals.closeInstructor()));
+        document.querySelectorAll('.close-cohort-modal').forEach(el => el.addEventListener('click', () => this.#cohortSummary.close()));
+        document.querySelectorAll('.close-help-modal').forEach(el => el.addEventListener('click', () => this.#modals.closeHelp()));
 
         // ── Modality modal buttons ──
         document.getElementById('modalityModal')?.querySelectorAll('[data-modality]').forEach(btn => {
@@ -401,14 +401,14 @@ class App {
     _handleDragOver(e) {
         const slot = e.target.closest('[data-droppable]');
         if (slot) {
-            this.#dragDrop.handleOver({ ...e, currentTarget: slot });
+            this.#dragDrop.handleOver({ currentTarget: slot, preventDefault: () => e.preventDefault(), dataTransfer: e.dataTransfer });
         }
     }
 
     _handleDragLeave(e) {
         const slot = e.target.closest('[data-droppable]');
         if (slot && !slot.contains(e.relatedTarget)) {
-            this.#dragDrop.handleLeave({ ...e, currentTarget: slot });
+            this.#dragDrop.handleLeave({ currentTarget: slot });
         }
     }
 
@@ -417,7 +417,7 @@ class App {
         if (slot) {
             const { classroom, day, timeslot } = slot.dataset;
             this.#dragDrop.handleDrop(
-                { ...e, currentTarget: slot, preventDefault: () => e.preventDefault() },
+                { currentTarget: slot, preventDefault: () => e.preventDefault(), dataTransfer: e.dataTransfer },
                 classroom, day, timeslot
             );
         }
