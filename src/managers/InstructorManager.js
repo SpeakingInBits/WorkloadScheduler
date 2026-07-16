@@ -34,7 +34,9 @@ export class InstructorManager {
         // Check ALL schedules for assignments (instructors are global)
         for (const [scheduleName, sd] of Object.entries(d.schedules)) {
             if (sd.courseInstructors) {
-                const hasAssignments = Object.values(sd.courseInstructors).some(iId => iId === id);
+                const hasAssignments = Object.values(sd.courseInstructors).some(value =>
+                    Helpers.normalizeInstructorAssignments(value).some(a => a.instructorId === id)
+                );
                 if (hasAssignments) {
                     alert(`Cannot delete instructor with assigned courses in schedule "${scheduleName}". Unassign them first.`);
                     return;
@@ -51,27 +53,31 @@ export class InstructorManager {
         const d = this.#dataStore.data;
         const sd = this.#dataStore.getCurrentSchedule();
 
-        // Collect all unique (courseId, section) keys that are in the grid
-        const scheduledPairs = new Set();
+        // Collect all unique (courseId, section) pairs that are in the grid.
+        const scheduledPairs = new Map(); // key -> { courseId, section }
         for (const classroomId in d.schedule) {
             for (const day in d.schedule[classroomId]) {
                 for (const time in d.schedule[classroomId][day]) {
                     const slotData = d.schedule[classroomId][day][time];
                     const items = Array.isArray(slotData) ? slotData : (slotData ? [slotData] : []);
                     items.forEach(item => {
-                        scheduledPairs.add(Helpers.getCourseInstructorKey(item.courseId, item.section));
+                        const section = item.section || '';
+                        const key = Helpers.getCourseInstructorKey(item.courseId, section);
+                        scheduledPairs.set(key, { courseId: item.courseId, section });
                     });
                 }
             }
         }
 
-        // Sum credits for unique pairs assigned to this instructor
+        // Sum this instructor's credit share across each unique scheduled pair.
         let total = 0;
-        scheduledPairs.forEach(key => {
-            if (sd.courseInstructors[key] === instructorId) {
-                const courseId = key.includes('::') ? key.split('::')[0] : key;
-                const course = d.courseCatalog.find(c => c.id === courseId);
-                if (course) total += course.credits;
+        scheduledPairs.forEach(({ courseId, section }) => {
+            const course = d.courseCatalog.find(c => c.id === courseId);
+            if (!course) return;
+            const assignment = Helpers.getInstructorAssignments(sd, courseId, section)
+                .find(a => a.instructorId === instructorId);
+            if (assignment) {
+                total += assignment.credits == null ? course.credits : assignment.credits;
             }
         });
         return total;

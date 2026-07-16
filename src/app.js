@@ -232,7 +232,6 @@ class App {
             const courseNumber = document.getElementById('editCourseNumber').value.trim() || '';
             const name = document.getElementById('editCourseName').value.trim();
             const credits = document.getElementById('editCourseCredits').value;
-            const instructorId = document.getElementById('editCourseInstructor').value;
             const modality = document.getElementById('editModality').value || 'in-person';
             const quarterTaken = document.getElementById('editCourseQuarterTaken')?.value.trim() || null;
             const quartersOffered = this.#uiState.getQuartersOfferedFromCheckboxes('edit');
@@ -240,7 +239,7 @@ class App {
 
             if (credits) {
                 this.#modals.saveCourseChanges(
-                    courseId, name, credits, instructorId || null,
+                    courseId, name, credits,
                     classroomId, day, timeslot, modality, courseIndex,
                     quarterTaken, programId, courseNumber, quartersOffered, section
                 );
@@ -358,6 +357,12 @@ class App {
                 this.#uiState.updateInstructorFilter(instrId, btn.checked);
                 break;
             }
+            case 'add-instructor-row':
+                this.#modals.addInstructorRow();
+                break;
+            case 'remove-instructor-row':
+                this.#modals.removeInstructorRow(btn.closest('.instructor-row'));
+                break;
         }
     }
 
@@ -434,6 +439,8 @@ class App {
         } else if (action === 'timeslot-edit-end') {
             const { day, ts, start } = el.dataset;
             this.#timeslotManager.edit(day, ts, start, el.value);
+        } else if (action === 'instructor-row-change' || action === 'course-credits-change') {
+            this.#modals.updateCreditsSummary();
         }
     }
 }

@@ -11,7 +11,9 @@ A front-end only web application for scheduling instructor workloads with drag-a
 
 ### Course Management
 Courses should be treated as an instance of a section.
-- Add courses with name, credits, and assigned instructor
+- Add courses with name, credits, and assigned instructor(s)
+- Credits may be fractional (e.g. 2.5)
+- **Co-teaching** — assign multiple instructors to a course and split its credits between them. Each instructor's workload counts only their share, and the split must add up to the course's total credits
 - Edit course details by **double-clicking** on any scheduled course
 - Delete courses (automatically removes from schedule)
 - Drag courses to schedule slots

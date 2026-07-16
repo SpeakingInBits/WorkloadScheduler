@@ -30,3 +30,6 @@ coverage/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code local tooling
+.claude/

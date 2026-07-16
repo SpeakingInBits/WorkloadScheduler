@@ -80,7 +80,7 @@
                             </select>
                             <input type="text" id="courseNumber" placeholder="Course number (e.g. 101)">
                             <input type="text" id="courseName" placeholder="Course name (optional)">
-                            <input type="number" id="courseCredits" placeholder="Credits" min="1" required>
+                            <input type="number" id="courseCredits" placeholder="Credits" min="0.5" step="0.5" required>
                             <input type="text" id="courseQuarterTaken" placeholder="Cohort (e.g. Q1, Q2)">
                             <div class="quarters-offered-dropdown">
                                 <button type="button" class="filter-toggle" data-toggle-quarters="add">Quarters Offered ▼</button>
@@ -169,7 +169,7 @@
                 </div>
                 <div class="form-group">
                     <label for="editCourseCredits">Credits</label>
-                    <input type="number" id="editCourseCredits" min="1" required>
+                    <input type="number" id="editCourseCredits" min="0.5" step="0.5" data-action="course-credits-change" required>
                 </div>
                 <div class="form-group">
                     <label for="editCourseQuarterTaken">Cohort</label>
@@ -196,10 +196,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="editCourseInstructor">Instructor (this section)</label>
-                    <select id="editCourseInstructor">
-                        <option value="">Select Instructor (Optional)</option>
-                    </select>
+                    <label>Instructors &amp; Credit Split (this section)</label>
+                    <div id="editInstructorRows" class="instructor-rows"></div>
+                    <button type="button" class="btn-secondary add-instructor-row-btn"
+                            data-action="add-instructor-row">+ Add Instructor</button>
+                    <div id="instructorCreditsSummary" class="credits-summary"></div>
                 </div>
                 <div class="form-group">
                     <label for="editCourseSection">Section</label>
@@ -291,7 +292,7 @@
                 <li><strong>Add Programs</strong> - Create programs (e.g. CPW) to organize courses</li>
                 <li><strong>Add Instructors</strong> - Enter names in the Instructors panel on the left</li>
                 <li><strong>Add Courses</strong> - Add courses to the global catalog with program, number, and credits</li>
-                <li><strong>Assign Instructors</strong> - Double-click a course to assign an instructor for the current schedule</li>
+                <li><strong>Assign Instructors</strong> - Double-click a course to assign one or more instructors for the current schedule, splitting the course's credits between them</li>
                 <li><strong>Add Classrooms</strong> - Create rooms with room numbers</li>
                 <li><strong>Add Time Slots</strong> - Set up shared schedule times for each day (applies to all rooms)</li>
                 <li><strong>Set Quarter</strong> - Choose a quarter (Fall/Winter/Spring/Summer) for each schedule</li>
@@ -306,6 +307,7 @@
             <ul style="line-height: 1.8; margin: 20px 0;">
                 <li>Courses are stored in a <strong>global catalog</strong> shared across all schedules</li>
                 <li><strong>Instructor assignments</strong> are per-schedule and per-section — the same course can have different instructors in different sections and schedules</li>
+                <li><strong>Co-teaching</strong> - Add multiple instructors to a course and split its credits between them; each instructor's workload counts only their share. Credits can be fractional (e.g. 1.5)</li>
                 <li><strong>Instructors</strong> are stored globally and shared across all schedules, so you only need to add them once</li>
                 <li>Set <strong>Quarters Offered</strong> on courses to control which quarters they can be scheduled in</li>
                 <li>Courses with no quarters offered are treated as <strong>"on demand"</strong> and available any quarter</li>

@@ -1318,3 +1318,63 @@ input:focus, select:focus {
     color: var(--color-text-muted2);
     font-weight: 500;
 }
+/* ── Instructor & credit-split rows (Course Edit modal) ── */
+.instructor-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.instructor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.instructor-row .instructor-row-select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.instructor-row .instructor-row-credits {
+    flex: 0 0 90px;
+    width: 90px;
+}
+
+.instructor-row-remove {
+    flex: 0 0 auto;
+    background: var(--color-danger);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.instructor-row-remove:hover {
+    background: var(--color-danger-hover);
+}
+
+.add-instructor-row-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+}
+
+.credits-summary {
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+.credits-summary-ok {
+    color: var(--color-success);
+}
+
+.credits-summary-error {
+    color: var(--color-danger);
+}

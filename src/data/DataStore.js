@@ -248,6 +248,22 @@ export class DataStore {
         if (sd.quarter === undefined) sd.quarter = '';
         delete sd.instructors;
 
+        // Co-teaching migration: a legacy assignment was a bare instructor-id
+        // string. Convert to an array of { instructorId, credits } entries, the
+        // lone instructor taking the course's full credit total.
+        Object.keys(sd.courseInstructors).forEach(key => {
+            const value = sd.courseInstructors[key];
+            if (Array.isArray(value)) return;
+            if (typeof value === 'string' && value) {
+                const courseId = key.includes('::') ? key.split('::')[0] : key;
+                const course = this.#data.courseCatalog.find(c => c.id === courseId);
+                const credits = course ? course.credits : null;
+                sd.courseInstructors[key] = [{ instructorId: value, credits }];
+            } else {
+                delete sd.courseInstructors[key];
+            }
+        });
+
         // Old per-schedule courses array → global catalog
         if (sd.courses) {
             sd.courses.forEach(course => {

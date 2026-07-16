@@ -70,6 +70,19 @@ describe('InstructorManager', () => {
             expect(ds.data.instructors).toHaveLength(1);
         });
 
+        it('does NOT remove a co-teaching instructor (array assignment)', () => {
+            ds.data.instructors.push({ id: 'i1', name: 'Prof One', color: '#fff' });
+            ds.data.instructors.push({ id: 'i2', name: 'Prof Two', color: '#fff' });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['course1'] = [
+                { instructorId: 'i1', credits: 2 },
+                { instructorId: 'i2', credits: 1 },
+            ];
+            vi.spyOn(window, 'alert').mockImplementation(() => {});
+            manager.remove('i2');
+            expect(ds.data.instructors).toHaveLength(2);
+        });
+
         it('calls onUpdate after removing', () => {
             ds.data.instructors.push({ id: 'i1', name: 'To Remove', color: '#fff' });
             manager.remove('i1');
@@ -107,6 +120,55 @@ describe('InstructorManager', () => {
                 Tuesday: { '09:00-10:00': [{ courseId: 'c2', modality: 'online', section: '' }] }
             };
             expect(manager.getWorkload('i1')).toBe(7);
+        });
+
+        it('counts only an instructor\'s share of a co-taught course', () => {
+            ds.data.instructors.push({ id: 'i1', name: 'Prof One', color: '#fff' });
+            ds.data.instructors.push({ id: 'i2', name: 'Prof Two', color: '#fff' });
+            ds.data.courseCatalog.push({ id: 'c1', credits: 3 });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['c1'] = [
+                { instructorId: 'i1', credits: 2 },
+                { instructorId: 'i2', credits: 1 },
+            ];
+            const roomId = 'r1';
+            sd.classrooms.push({ id: roomId, roomNumber: '101', visible: true });
+            sd.schedule[roomId] = {
+                Monday: { '09:00-10:00': [{ courseId: 'c1', modality: 'in-person', section: '' }] },
+            };
+            expect(manager.getWorkload('i1')).toBe(2);
+            expect(manager.getWorkload('i2')).toBe(1);
+        });
+
+        it('supports fractional credit splits', () => {
+            ds.data.instructors.push({ id: 'i1', name: 'Prof One', color: '#fff' });
+            ds.data.instructors.push({ id: 'i2', name: 'Prof Two', color: '#fff' });
+            ds.data.courseCatalog.push({ id: 'c1', credits: 3 });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['c1'] = [
+                { instructorId: 'i1', credits: 1.5 },
+                { instructorId: 'i2', credits: 1.5 },
+            ];
+            const roomId = 'r1';
+            sd.classrooms.push({ id: roomId, roomNumber: '101', visible: true });
+            sd.schedule[roomId] = {
+                Monday: { '09:00-10:00': [{ courseId: 'c1', modality: 'in-person', section: '' }] },
+            };
+            expect(manager.getWorkload('i1')).toBe(1.5);
+            expect(manager.getWorkload('i2')).toBe(1.5);
+        });
+
+        it('falls back to full course credits for a legacy string assignment', () => {
+            ds.data.instructors.push({ id: 'i1', name: 'Prof', color: '#fff' });
+            ds.data.courseCatalog.push({ id: 'c1', credits: 4 });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['c1'] = 'i1'; // legacy shape
+            const roomId = 'r1';
+            sd.classrooms.push({ id: roomId, roomNumber: '101', visible: true });
+            sd.schedule[roomId] = {
+                Monday: { '09:00-10:00': [{ courseId: 'c1', modality: 'in-person', section: '' }] },
+            };
+            expect(manager.getWorkload('i1')).toBe(4);
         });
 
         it('does not double-count the same course scheduled multiple times', () => {

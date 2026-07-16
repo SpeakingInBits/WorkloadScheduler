@@ -74,3 +74,74 @@ test.describe('Course management', () => {
         await expect(page.locator('.course-item')).toContainText('CPW Course');
     });
 });
+
+test.describe('Co-teaching and credit splits', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto(BASE);
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+    });
+
+    /** Add an instructor via the sidebar form. */
+    async function addInstructor(page, name) {
+        await page.fill('#instructorName', name);
+        await page.click('#addInstructorForm button[type="submit"]');
+    }
+
+    test('supports a fractional course credit value', async ({ page }) => {
+        await addCourse(page, { name: 'Seminar', credits: '2.5' });
+        await expect(page.locator('.course-item')).toContainText('2.5 credits');
+    });
+
+    test('splits credits between two co-teaching instructors', async ({ page }) => {
+        await addInstructor(page, 'Alice');
+        await addInstructor(page, 'Bob');
+        await addCourse(page, { name: 'Physics', credits: '3' });
+
+        await page.locator('.course-item').first().dblclick();
+        await expect(page.locator('#courseModal')).toBeVisible();
+
+        // First instructor row
+        await page.click('[data-action="add-instructor-row"]');
+        const row1 = page.locator('#editInstructorRows .instructor-row').nth(0);
+        await row1.locator('.instructor-row-select').selectOption({ label: 'Alice' });
+        await row1.locator('.instructor-row-credits').fill('2');
+
+        // Second instructor row
+        await page.click('[data-action="add-instructor-row"]');
+        const row2 = page.locator('#editInstructorRows .instructor-row').nth(1);
+        await row2.locator('.instructor-row-select').selectOption({ label: 'Bob' });
+        await row2.locator('.instructor-row-credits').fill('1');
+
+        await expect(page.locator('#instructorCreditsSummary')).toHaveText(/Assigned 3 of 3 credits/);
+
+        await page.locator('#editCourseForm button[type="submit"]').click();
+        await expect(page.locator('#courseModal')).toBeHidden();
+
+        // Sidebar reflects both instructors with their shares
+        await expect(page.locator('.course-item')).toContainText('Alice (2), Bob (1)');
+    });
+
+    test('blocks a save when instructor credits do not total the course credits', async ({ page }) => {
+        await addInstructor(page, 'Alice');
+        await addInstructor(page, 'Bob');
+        await addCourse(page, { name: 'Physics', credits: '3' });
+
+        await page.locator('.course-item').first().dblclick();
+
+        await page.click('[data-action="add-instructor-row"]');
+        const row1 = page.locator('#editInstructorRows .instructor-row').nth(0);
+        await row1.locator('.instructor-row-select').selectOption({ label: 'Alice' });
+        await row1.locator('.instructor-row-credits').fill('2');
+
+        await page.click('[data-action="add-instructor-row"]');
+        const row2 = page.locator('#editInstructorRows .instructor-row').nth(1);
+        await row2.locator('.instructor-row-select').selectOption({ label: 'Bob' });
+        await row2.locator('.instructor-row-credits').fill('2'); // 2 + 2 = 4 ≠ 3
+
+        // The mismatch alert is dismissed and the modal stays open (save blocked)
+        page.once('dialog', dialog => dialog.accept());
+        await page.locator('#editCourseForm button[type="submit"]').click();
+        await expect(page.locator('#courseModal')).toBeVisible();
+    });
+});
