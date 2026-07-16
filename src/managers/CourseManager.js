@@ -23,8 +23,8 @@ export class CourseManager {
         const creditsInput = document.getElementById('courseCredits');
         const quarterInput = document.getElementById('courseQuarterTaken');
 
-        const credits = parseInt(creditsInput.value);
-        if (!credits) return;
+        const credits = parseFloat(creditsInput.value);
+        if (!credits || credits <= 0) return;
 
         const quartersOffered = this.#uiState.getQuartersOfferedFromCheckboxes('add');
 

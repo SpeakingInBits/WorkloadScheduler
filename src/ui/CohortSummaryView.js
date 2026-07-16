@@ -127,7 +127,7 @@ export class CohortSummaryView {
                 return `
                     <div class="cohort-class">
                         <div class="cohort-class-name">${cls.name}</div>
-                        <div class="cohort-class-info">${cls.credits} credits</div>
+                        <div class="cohort-class-info">${Helpers.formatCredits(cls.credits)} credits</div>
                         <div class="cohort-schedule-list">${scheduleHTML}</div>
                     </div>
                 `;
@@ -138,7 +138,7 @@ export class CohortSummaryView {
                     <h3 class="cohort-name">Cohort: ${cohort.name}</h3>
                     <div class="cohort-stats">
                         <span class="cohort-stat"><strong>Days per week:</strong> ${daysPerWeek > 0 ? daysPerWeek : 'N/A'}</span>
-                        <span class="cohort-stat"><strong>Total credits:</strong> ${totalCredits}</span>
+                        <span class="cohort-stat"><strong>Total credits:</strong> ${Helpers.formatCredits(totalCredits)}</span>
                     </div>
                     <div class="cohort-classes-list">${classesHTML}</div>
                 </div>

@@ -118,16 +118,16 @@ export class ValidationService {
             const instructorEntries = {};
             entries.forEach(entry => {
                 const course = d.courseCatalog.find(c => c.id === entry.courseId);
-                const instrKey = Helpers.getCourseInstructorKey(entry.courseId, entry.section);
-                const instructorId = sd.courseInstructors[instrKey] || null;
-                if (course && instructorId) {
+                if (!course) return;
+                const assignments = Helpers.getInstructorAssignments(sd, entry.courseId, entry.section);
+                const sectionSuffix = entry.section ? ` \u00a7${entry.section}` : '';
+                assignments.forEach(({ instructorId }) => {
                     if (!instructorEntries[instructorId]) instructorEntries[instructorId] = [];
-                    const sectionSuffix = entry.section ? ` \u00a7${entry.section}` : '';
                     instructorEntries[instructorId].push({
                         ...entry,
                         courseName: Helpers.getCourseDisplayName(course, d.programs) + sectionSuffix,
                     });
-                }
+                });
             });
 
             for (const instructorId in instructorEntries) {

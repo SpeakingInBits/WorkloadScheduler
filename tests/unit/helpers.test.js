@@ -15,6 +15,94 @@ describe('Helpers', () => {
         });
     });
 
+    describe('normalizeInstructorAssignments', () => {
+        it('returns [] for null/undefined/empty', () => {
+            expect(Helpers.normalizeInstructorAssignments(null)).toEqual([]);
+            expect(Helpers.normalizeInstructorAssignments(undefined)).toEqual([]);
+            expect(Helpers.normalizeInstructorAssignments('')).toEqual([]);
+        });
+
+        it('wraps a legacy id string with unspecified credits', () => {
+            expect(Helpers.normalizeInstructorAssignments('i1')).toEqual([
+                { instructorId: 'i1', credits: null },
+            ]);
+        });
+
+        it('normalizes an array of {instructorId, credits} entries', () => {
+            expect(Helpers.normalizeInstructorAssignments([
+                { instructorId: 'i1', credits: 2 },
+                { instructorId: 'i2', credits: 1.5 },
+            ])).toEqual([
+                { instructorId: 'i1', credits: 2 },
+                { instructorId: 'i2', credits: 1.5 },
+            ]);
+        });
+
+        it('coerces string credits to numbers and blanks to null', () => {
+            expect(Helpers.normalizeInstructorAssignments([
+                { instructorId: 'i1', credits: '2.5' },
+                { instructorId: 'i2', credits: '' },
+            ])).toEqual([
+                { instructorId: 'i1', credits: 2.5 },
+                { instructorId: 'i2', credits: null },
+            ]);
+        });
+
+        it('drops entries without an instructorId', () => {
+            expect(Helpers.normalizeInstructorAssignments([
+                { instructorId: '', credits: 2 },
+                'i2',
+            ])).toEqual([{ instructorId: 'i2', credits: null }]);
+        });
+    });
+
+    describe('getInstructorAssignments / getPrimaryInstructorId', () => {
+        const scheduleData = {
+            courseInstructors: {
+                c1: [{ instructorId: 'i1', credits: 2 }, { instructorId: 'i2', credits: 1 }],
+                'c2::A': 'iLegacy',
+            },
+        };
+
+        it('reads array assignments for a bare course key', () => {
+            expect(Helpers.getInstructorAssignments(scheduleData, 'c1', '')).toEqual([
+                { instructorId: 'i1', credits: 2 },
+                { instructorId: 'i2', credits: 1 },
+            ]);
+        });
+
+        it('reads legacy string assignments for a sectioned key', () => {
+            expect(Helpers.getInstructorAssignments(scheduleData, 'c2', 'A')).toEqual([
+                { instructorId: 'iLegacy', credits: null },
+            ]);
+        });
+
+        it('returns the first instructor id as primary', () => {
+            expect(Helpers.getPrimaryInstructorId(scheduleData, 'c1', '')).toBe('i1');
+        });
+
+        it('returns null primary when unassigned', () => {
+            expect(Helpers.getPrimaryInstructorId(scheduleData, 'missing', '')).toBeNull();
+        });
+    });
+
+    describe('formatCredits', () => {
+        it('renders whole numbers without decimals', () => {
+            expect(Helpers.formatCredits(3)).toBe('3');
+            expect(Helpers.formatCredits(3.0)).toBe('3');
+        });
+
+        it('renders fractional values, trimming trailing zeros', () => {
+            expect(Helpers.formatCredits(2.5)).toBe('2.5');
+            expect(Helpers.formatCredits(1.25)).toBe('1.25');
+            expect(Helpers.formatCredits(1.5)).toBe('1.5');
+        });
+
+        it('avoids floating point noise', () => {
+            expect(Helpers.formatCredits(0.1 + 0.2)).toBe('0.3');
+        });
+    });
+
     describe('getCourseDisplayName', () => {
         const programs = [{ id: 'p1', name: 'CPW' }];
 

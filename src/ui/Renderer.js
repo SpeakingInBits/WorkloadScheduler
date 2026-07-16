@@ -79,7 +79,7 @@ export class Renderer {
                      style="cursor: pointer; border-left: 4px solid ${color};">
                     <div>
                         <div>${instructor.name}</div>
-                        <div class="workload">${workload} credits</div>
+                        <div class="workload">${Helpers.formatCredits(workload)} credits</div>
                     </div>
                     <button class="delete-btn"
                             data-action="instructor-remove" data-id="${instructor.id}">Delete</button>
@@ -143,8 +143,9 @@ export class Renderer {
         const sd = this.#dataStore.getCurrentSchedule();
 
         container.innerHTML = displayCourses.map(course => {
-            const instructorId = sd.courseInstructors[course.id] || null;
-            const instructor = instructorId ? d.instructors.find(i => i.id === instructorId) : null;
+            const instructorLabel = this._instructorLabel(
+                Helpers.getInstructorAssignments(sd, course.id, ''), course.credits
+            );
             const isScheduled = this.#callbacks.isScheduled(course.id);
             const statusClass = isScheduled ? 'course-scheduled' : 'course-unscheduled';
             const quarterLabel = course.quarterTaken ? ` • ${course.quarterTaken}` : '';
@@ -159,7 +160,7 @@ export class Renderer {
                      data-action="course-edit-list" data-id="${course.id}">
                     <div class="course-info">
                         <div class="course-name">${displayName}${hasNoProgram ? ' <span class="no-program-badge" title="No program assigned">⚠️</span>' : ''}</div>
-                        <div class="course-meta">${course.credits} credits${instructor ? ' • ' + instructor.name : ''}${quarterLabel}${quartersStr}</div>
+                        <div class="course-meta">${Helpers.formatCredits(course.credits)} credits${instructorLabel ? ' • ' + instructorLabel : ''}${quarterLabel}${quartersStr}</div>
                     </div>
                     <button class="delete-btn"
                             data-action="course-remove" data-id="${course.id}">Delete</button>
@@ -352,9 +353,8 @@ export class Renderer {
         const sectionLabel = item.section ? ` <span class="section-badge">§${item.section}</span>` : '';
 
         const sd = this.#dataStore.getCurrentSchedule();
-        const instrKey = Helpers.getCourseInstructorKey(item.courseId, item.section);
-        const instructorId = sd.courseInstructors[instrKey] || null;
-        const instructor = instructorId ? d.instructors.find(i => i.id === instructorId) : null;
+        const assignments = Helpers.getInstructorAssignments(sd, item.courseId, item.section);
+        const instructorLabel = this._instructorLabel(assignments, course ? course.credits : 0);
 
         return `
             <div class="scheduled-course"
@@ -378,7 +378,7 @@ export class Renderer {
                         data-timeslot="${timeslot}" data-index="${index}">&times;</button>
                 <div class="course-name">${displayName}${sectionLabel}${hasConflict ? ' ⚠️' : ''}</div>
                 <div class="course-meta">
-                    ${course ? course.credits + ' credits' : ''}${instructor ? ' • ' + instructor.name : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
+                    ${course ? Helpers.formatCredits(course.credits) + ' credits' : ''}${instructorLabel ? ' • ' + instructorLabel : ''}${course && course.quarterTaken ? '<span class="quarter-badge">' + course.quarterTaken + '</span>' : ''}
                     <span class="modality-badge">${Config.MODALITY_ICONS[item.modality]} ${item.modality}</span>
                 </div>
             </div>
@@ -388,16 +388,39 @@ export class Renderer {
     _getScheduledCourseStyle(courseId, section) {
         const d = this.#dataStore.data;
         const sd = this.#dataStore.getCurrentSchedule();
-        const instrKey = Helpers.getCourseInstructorKey(courseId, section);
-        const instructorId = sd.courseInstructors[instrKey] || null;
-        const instructor = instructorId ? d.instructors.find(i => i.id === instructorId) : null;
-        const color = instructor ? (instructor.color || Config.DEFAULT_COLOR) : '#95a5a6';
+        const assignments = Helpers.getInstructorAssignments(sd, courseId, section);
+        const primaryId = assignments.length > 0 ? assignments[0].instructorId : null;
+        const primary = primaryId ? d.instructors.find(i => i.id === primaryId) : null;
+        const color = primary ? (primary.color || Config.DEFAULT_COLOR) : '#95a5a6';
 
+        // With co-teaching, keep the slot visible if ANY assigned instructor
+        // passes the active filter.
         const isFiltering = d.instructorFilter && d.instructorFilter.length > 0;
-        const isFiltered = isFiltering && instructorId && !d.instructorFilter.includes(instructorId);
+        const matchesFilter = assignments.some(a => d.instructorFilter.includes(a.instructorId));
+        const isFiltered = isFiltering && assignments.length > 0 && !matchesFilter;
         const opacity = isFiltered ? '0.2' : '1';
 
         return `background: ${color}; opacity: ${opacity};`;
+    }
+
+    /**
+     * Build a display label for a set of instructor assignments.
+     * Single instructor → "Name". Co-teaching → "Name (2), Name2 (1)".
+     * @param {Array<{instructorId: string, credits: number|null}>} assignments
+     * @param {number} courseCredits — fallback credit total for unspecified shares
+     * @returns {string}
+     */
+    _instructorLabel(assignments, courseCredits) {
+        const d = this.#dataStore.data;
+        if (!assignments || assignments.length === 0) return '';
+        const names = assignments.map(a => {
+            const instructor = d.instructors.find(i => i.id === a.instructorId);
+            const name = instructor ? instructor.name : 'Unknown';
+            if (assignments.length === 1) return name;
+            const credits = a.credits == null ? courseCredits : a.credits;
+            return `${name} (${Helpers.formatCredits(credits)})`;
+        });
+        return names.join(', ');
     }
 
     // ── Timeslot Manager ──

@@ -72,6 +72,38 @@ describe('DataStore', () => {
             expect(() => ds.load()).not.toThrow();
         });
 
+        it('migrates a legacy string instructor assignment to a credit-split array', () => {
+            ds.data.courseCatalog.push({ id: 'c1', name: 'Math', credits: 3, programId: null, courseNumber: '', quartersOffered: [] });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['c1'] = 'i1';        // legacy single-instructor shape
+            sd.courseInstructors['c2::A'] = 'i2';     // legacy sectioned shape (unknown course)
+            ds.save();
+
+            const ds2 = new DataStore();
+            ds2.load();
+            const reloaded = ds2.getCurrentSchedule();
+            expect(reloaded.courseInstructors['c1']).toEqual([{ instructorId: 'i1', credits: 3 }]);
+            // Unknown course → credits fall back to null
+            expect(reloaded.courseInstructors['c2::A']).toEqual([{ instructorId: 'i2', credits: null }]);
+        });
+
+        it('leaves an already-migrated array assignment untouched', () => {
+            ds.data.courseCatalog.push({ id: 'c1', name: 'Math', credits: 3, programId: null, courseNumber: '', quartersOffered: [] });
+            const sd = ds.getCurrentSchedule();
+            sd.courseInstructors['c1'] = [
+                { instructorId: 'i1', credits: 1.5 },
+                { instructorId: 'i2', credits: 1.5 },
+            ];
+            ds.save();
+
+            const ds2 = new DataStore();
+            ds2.load();
+            expect(ds2.getCurrentSchedule().courseInstructors['c1']).toEqual([
+                { instructorId: 'i1', credits: 1.5 },
+                { instructorId: 'i2', credits: 1.5 },
+            ]);
+        });
+
         it('preserves currentSchedule after reload', () => {
             ds.data.schedules['Fall 2026'] = ds.createEmptySchedule('Fall');
             ds.data.currentSchedule = 'Fall 2026';

@@ -99,11 +99,8 @@ export class ModalManager {
         const sectionInput = document.getElementById('editCourseSection');
         if (sectionInput) sectionInput.value = currentSection;
 
-        const instructorSelect = document.getElementById('editCourseInstructor');
-        instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
-            d.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-        const instrKey = Helpers.getCourseInstructorKey(courseId, currentSection);
-        instructorSelect.value = sd.courseInstructors[instrKey] || '';
+        const assignments = Helpers.getInstructorAssignments(sd, courseId, currentSection);
+        this._renderInstructorRows(assignments);
 
         const modal = document.getElementById('courseModal');
         modal.style.display = 'block';
@@ -142,10 +139,8 @@ export class ModalManager {
         const sectionGroup = document.getElementById('editCourseSection')?.closest('.form-group');
         if (sectionGroup) sectionGroup.style.display = 'none';
 
-        const instructorSelect = document.getElementById('editCourseInstructor');
-        instructorSelect.innerHTML = '<option value="">Select Instructor (Optional)</option>' +
-            d.instructors.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-        instructorSelect.value = sd.courseInstructors[courseId] || '';
+        const assignments = Helpers.getInstructorAssignments(sd, courseId, '');
+        this._renderInstructorRows(assignments);
 
         const modal = document.getElementById('courseModal');
         modal.style.display = 'block';
@@ -160,13 +155,34 @@ export class ModalManager {
         document.getElementById('courseModal').style.display = 'none';
     }
 
-    saveCourseChanges(courseId, name, credits, instructorId, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered, section) {
+    saveCourseChanges(courseId, name, credits, classroomId, day, timeslot, modality, courseIndex, quarterTaken, programId, courseNumber, quartersOffered, section) {
         const d = this.#dataStore.data;
         const course = d.courseCatalog.find(c => c.id === courseId);
         if (!course) return;
 
+        const courseCredits = parseFloat(credits);
+        const assignments = this._readInstructorRows();
+
+        // Enforced split: any assigned instructors must share exactly the
+        // course's total credits, and no instructor may appear twice.
+        const ids = assignments.map(a => a.instructorId);
+        if (new Set(ids).size !== ids.length) {
+            alert('Each instructor can only be listed once for this section.');
+            return;
+        }
+        if (assignments.length > 0) {
+            const assigned = assignments.reduce((sum, a) => sum + a.credits, 0);
+            if (Math.abs(assigned - courseCredits) > 0.001) {
+                alert(
+                    `Instructor credits must add up to the course total.\n` +
+                    `Assigned: ${Helpers.formatCredits(assigned)} — Course total: ${Helpers.formatCredits(courseCredits)}`
+                );
+                return;
+            }
+        }
+
         course.name = name || '';
-        course.credits = parseInt(credits);
+        course.credits = courseCredits;
         course.quarterTaken = quarterTaken || null;
         course.programId = programId || null;
         course.courseNumber = courseNumber || '';
@@ -175,8 +191,8 @@ export class ModalManager {
         const currentSection = section || '';
         const sd = this.#dataStore.getCurrentSchedule();
         const instrKey = Helpers.getCourseInstructorKey(courseId, currentSection);
-        if (instructorId) {
-            sd.courseInstructors[instrKey] = instructorId;
+        if (assignments.length > 0) {
+            sd.courseInstructors[instrKey] = assignments;
         } else {
             delete sd.courseInstructors[instrKey];
         }
@@ -196,6 +212,88 @@ export class ModalManager {
         this.#dataStore.save();
         this.#onUpdate();
         this.closeCourse();
+    }
+
+    // ── Instructor / credit-split rows (Course Edit Modal) ──
+
+    _instructorOptions(selectedId) {
+        const d = this.#dataStore.data;
+        return '<option value="">Select Instructor</option>' +
+            d.instructors.map(i =>
+                `<option value="${i.id}" ${i.id === selectedId ? 'selected' : ''}>${i.name}</option>`
+            ).join('');
+    }
+
+    _instructorRowHTML(instructorId = '', credits = '') {
+        const creditsVal = (credits === null || credits === undefined) ? '' : credits;
+        return `
+            <div class="instructor-row">
+                <select class="instructor-row-select" data-action="instructor-row-change">
+                    ${this._instructorOptions(instructorId)}
+                </select>
+                <input type="number" class="instructor-row-credits" data-action="instructor-row-change"
+                       step="0.5" min="0" value="${creditsVal}" placeholder="Credits">
+                <button type="button" class="instructor-row-remove"
+                        data-action="remove-instructor-row" title="Remove instructor">&times;</button>
+            </div>
+        `;
+    }
+
+    _renderInstructorRows(assignments) {
+        const container = document.getElementById('editInstructorRows');
+        if (!container) return;
+        container.innerHTML = (assignments || [])
+            .map(a => this._instructorRowHTML(a.instructorId, a.credits))
+            .join('');
+        this.updateCreditsSummary();
+    }
+
+    addInstructorRow() {
+        const container = document.getElementById('editInstructorRows');
+        if (!container) return;
+        // Default the new row's credits to whatever is still unassigned.
+        const courseCredits = parseFloat(document.getElementById('editCourseCredits').value) || 0;
+        const assigned = this._readInstructorRows().reduce((sum, a) => sum + a.credits, 0);
+        const remaining = Math.max(0, parseFloat((courseCredits - assigned).toFixed(2)));
+        container.insertAdjacentHTML('beforeend', this._instructorRowHTML('', remaining || ''));
+        this.updateCreditsSummary();
+    }
+
+    removeInstructorRow(rowEl) {
+        if (rowEl) rowEl.remove();
+        this.updateCreditsSummary();
+    }
+
+    _readInstructorRows() {
+        const container = document.getElementById('editInstructorRows');
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('.instructor-row'))
+            .map(row => {
+                const instructorId = row.querySelector('.instructor-row-select').value;
+                const credits = parseFloat(row.querySelector('.instructor-row-credits').value) || 0;
+                return { instructorId, credits };
+            })
+            .filter(a => a.instructorId);
+    }
+
+    updateCreditsSummary() {
+        const summary = document.getElementById('instructorCreditsSummary');
+        if (!summary) return;
+
+        const assignments = this._readInstructorRows();
+        if (assignments.length === 0) {
+            summary.textContent = 'No instructors assigned (optional).';
+            summary.className = 'credits-summary';
+            return;
+        }
+
+        const courseCredits = parseFloat(document.getElementById('editCourseCredits').value) || 0;
+        const assigned = assignments.reduce((sum, a) => sum + a.credits, 0);
+        const balanced = Math.abs(assigned - courseCredits) <= 0.001;
+        summary.textContent = balanced
+            ? `Assigned ${Helpers.formatCredits(assigned)} of ${Helpers.formatCredits(courseCredits)} credits ✓`
+            : `Assigned ${Helpers.formatCredits(assigned)} of ${Helpers.formatCredits(courseCredits)} credits — must total ${Helpers.formatCredits(courseCredits)}`;
+        summary.className = `credits-summary ${balanced ? 'credits-summary-ok' : 'credits-summary-error'}`;
     }
 
     // ── Instructor Edit Modal ──
